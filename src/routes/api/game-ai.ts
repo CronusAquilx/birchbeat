@@ -24,7 +24,7 @@ async function handle({ request }: { request: Request }) {
   const keys = Object.keys(view);
   if (!keys.length) return Response.json({ error: "Play the game a bit first so it makes a save, then try again." }, { status: 400 });
   const per = Math.max(800, Math.floor(20000 / keys.length));
-  const saveText = keys.map((k) => `### KEY: ${k}\n${view[k].text.slice(0, per)}`).join("\n\n").slice(0, 24000);
+  const saveText = keys.map((k) => `### KEY: ${k}\n${view[k]!.text.slice(0, per)}`).join("\n\n").slice(0, 24000);
   const p = hostedFallback();
   if (!p || !p.ok) return Response.json({ error: "AI is not available right now" }, { status: 503 });
   let text = "";
@@ -49,13 +49,13 @@ async function handle({ request }: { request: Request }) {
     for (const e of raw.edits ?? []) {
       const k = String(e.key ?? ""); const find = String(e.find ?? ""); const rep = String(e.replace ?? "");
       if (!(k in view) || !find || find === rep) continue;
-      const cur = work[k] ?? view[k].text;
+      const cur = work[k] ?? view[k]!.text;
       if (cur.includes(find)) work[k] = cur.split(find).join(rep);
     }
   } catch { /* bad JSON */ }
   const changes: Record<string, string> = {};
   for (const [k, t] of Object.entries(work)) {
-    if (!view[k].b64) { changes[k] = t; continue; }
+    if (!view[k]!.b64) { changes[k] = t; continue; }
     try { changes[k] = btoa(t); } catch { /* skip */ }
   }
   if (!Object.keys(changes).length) return Response.json({ error: "AI couldn't find anything to change for that in this game's save. Play a bit longer so the game saves more, then try again." }, { status: 422 });
