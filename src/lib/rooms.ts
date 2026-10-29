@@ -7,12 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
  * everyone in it shares one state object and anyone can change it (last write wins).
  */
 export type RoomKind = "movies" | "music" | "games";
-export type GameState = { file: string; name: string; mode: "all" | "turns"; controller?: string };
+export type GameState = { file: string; name: string; mode: "all" | "turns"; controller?: string | undefined };
 export type MovieState = { type: string; id: number; s?: number; e?: number; server?: string };
 export type MusicTrack = { id: string; title: string; artist: string; artistId: string; album: string; albumId: string; art: string; duration: number; preview?: string };
 export type MusicState = { queue: MusicTrack[]; cur: number; server: string; paused: boolean; t: number };
 export type RoomState = { movie?: MovieState; music?: MusicState; game?: GameState; v: number; by: string };
-type Msg = { event: string; from: string; to?: string; data: unknown };
+type Msg = { event: string; from: string; to?: string | undefined; data: unknown };
 const listeners = new Set<(kind: RoomKind, m: Msg) => void>();
 export type Member = { id: string; name: string; host: boolean };
 export type Room = { kind: RoomKind; code: string; host: boolean; members: Member[]; state: RoomState | null; status: "joining" | "live" };

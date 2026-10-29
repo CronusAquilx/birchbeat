@@ -179,7 +179,6 @@ function Sites() {
           {SERVERS.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
         </select>
         <div className="ml-auto flex gap-2">
-          <HostParty game={game} wrap={wrap} frame={frame} />
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
           <button onClick={() => wrap.current?.requestFullscreen?.()} className="rounded-md border p-1.5" aria-label="Fullscreen"><Maximize className="size-4" /></button>
         </div>
