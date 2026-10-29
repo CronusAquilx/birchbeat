@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      game_saves: {
+        Row: {
+          data: Json
+          game: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          data?: Json
+          game: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          data?: Json
+          game?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memories: {
         Row: {
           content: string
