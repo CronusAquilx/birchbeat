@@ -13,7 +13,7 @@ export function RoomButton({ kind, className }: { kind: RoomKind; className?: st
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const label = kind === "movies" ? "Watch party" : "Listen party";
+  const label = kind === "movies" ? "Watch party" : kind === "games" ? "Game party" : "Listen party";
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true); setErr("");
@@ -33,7 +33,7 @@ export function RoomButton({ kind, className }: { kind: RoomKind; className?: st
         <DialogHeader>
           <DialogTitle>{label}</DialogTitle>
           <DialogDescription>
-            {kind === "movies" ? "Watch together — everyone in the room can pick titles, episodes and servers." : "Listen together — everyone in the room can pick songs, skip and pause."}
+            {kind === "games" ? "Play together — the host shares their game screen and everyone can control it, all at once or taking turns." : kind === "movies" ? "Watch together — everyone in the room can pick titles, episodes and servers." : "Listen together — everyone in the room can pick songs, skip and pause."}
           </DialogDescription>
         </DialogHeader>
         {room ? (
