@@ -6,11 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
  * Watch/listen-together rooms. A room is a live channel named by a short code;
  * everyone in it shares one state object and anyone can change it (last write wins).
  */
-export type RoomKind = "movies" | "music";
+export type RoomKind = "movies" | "music" | "games";
+export type GameState = { file: string; name: string; mode: "all" | "turns"; controller?: string | undefined };
 export type MovieState = { type: string; id: number; s?: number; e?: number; server?: string };
 export type MusicTrack = { id: string; title: string; artist: string; artistId: string; album: string; albumId: string; art: string; duration: number; preview?: string };
 export type MusicState = { queue: MusicTrack[]; cur: number; server: string; paused: boolean; t: number };
-export type RoomState = { movie?: MovieState; music?: MusicState; v: number; by: string };
+export type RoomState = { movie?: MovieState; music?: MusicState; game?: GameState; v: number; by: string };
+type Msg = { event: string; from: string; to?: string | undefined; data: unknown };
+const listeners = new Set<(kind: RoomKind, m: Msg) => void>();
 export type Member = { id: string; name: string; host: boolean };
 export type Room = { kind: RoomKind; code: string; host: boolean; members: Member[]; state: RoomState | null; status: "joining" | "live" };
 
@@ -54,6 +57,11 @@ async function connect(kind: RoomKind, code: string, host: boolean): Promise<voi
     const s = payload as RoomState;
     const cur = rooms[kind]?.state;
     if (!cur || s.v > cur.v) update(kind, { state: s });
+  });
+  ch.on("broadcast", { event: "msg" }, ({ payload }) => {
+    const m = payload as Msg;
+    if (m.to && m.to !== me.id) return;
+    listeners.forEach((f) => f(kind, m));
   });
   ch.on("broadcast", { event: "hello" }, () => {
     const s = rooms[kind]?.state;
@@ -119,4 +127,14 @@ export function useRoom(kind: RoomKind): Room | null {
     () => rooms[kind] ?? null,
     () => null,
   );
+}
+
+/** Sends a direct (to) or room-wide message, used for game streaming and remote input. */
+export function sendRoomMsg(kind: RoomKind, event: string, data: unknown, to?: string) {
+  void channels[kind]?.send({ type: "broadcast", event: "msg", payload: { event, from: me.id, to, data } satisfies Msg });
+}
+export function onRoomMsg(kind: RoomKind, fn: (m: Msg) => void) {
+  const l = (k: RoomKind, m: Msg) => { if (k === kind) fn(m); };
+  listeners.add(l);
+  return () => { listeners.delete(l); };
 }
