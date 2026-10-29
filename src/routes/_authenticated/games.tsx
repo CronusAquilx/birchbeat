@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Gamepad2, Globe, Maximize, RotateCw, Search, Wand2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { modsFor } from "@/lib/games/mods";
+import { presetsFor, modsFor } from "@/lib/games/mods";
 import { RoomButton } from "@/components/RoomButton";
 import { useRoom } from "@/lib/rooms";
 import { GuestScreen, HostParty } from "@/components/games/GameParty";
@@ -127,6 +127,8 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
     mods.forEach((m) => { try { frame.current?.contentWindow?.postMessage({ bbMod: 1, prop: m.prop, value: state[m.id] ? m.value : null }, "*"); } catch { /* frame gone */ } });
   };
   const toggle = (id: string, v: boolean) => setOn((s) => { const n = { ...s, [id]: v }; sendMods(n); return n; });
+  const [speed, setSpeed] = useState(1);
+  const sendSpeed = (v: number) => { try { frame.current?.contentWindow?.postMessage({ bbSpeed: 1, value: v }, "*"); } catch { /* frame gone */ } };
   const [save, setSave] = useState<Record<string, string> | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiText, setAiText] = useState("");
@@ -186,6 +188,9 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          <select value={speed} onChange={(e) => { const v = Number(e.target.value); setSpeed(v); sendSpeed(v); }} className="rounded-md border bg-background px-2 py-1.5 text-sm" aria-label="Game speed">
+            {[0.25, 0.5, 0.75, 1, 1.5, 2, 3].map((v) => <option key={v} value={v}>{v}x speed</option>)}
+          </select>
           <button onClick={() => setAiOpen((v) => !v)} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="AI mod maker"><Sparkles className="size-4" /> AI mod</button>
           <HostParty game={game} wrap={wrap} frame={frame} />
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
@@ -198,11 +203,12 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
         <form onSubmit={(e) => { e.preventDefault(); if (aiText.trim() && !aiBusy) void runAi(); }} className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
           <input value={aiText} onChange={(e) => setAiText(e.target.value)} placeholder="Describe a mod, e.g. give me 1,000,000 coins" className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-sm" />
           <button disabled={aiBusy || !aiText.trim()} className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50">{aiBusy ? "Making…" : "Make mod"}</button>
+          {presetsFor(game.name).length > 0 && <div className="flex w-full flex-wrap gap-1">{presetsFor(game.name).map((p) => <button type="button" key={p} onClick={() => setAiText(p)} className="rounded-full border px-2 py-0.5 text-xs">{p}</button>)}</div>}
           {aiMsg && <p className="w-full text-xs text-muted-foreground">{aiMsg}</p>}
         </form>
       )}
       <div ref={wrap} className="relative min-h-0 flex-1 overflow-hidden bg-background [contain:strict]">
-        {save === null ? <p className="p-4 text-sm text-muted-foreground">Loading your save…</p> : <iframe name={`bbsave:${JSON.stringify(saveRef.current)}`} ref={frame} key={nonce} title={game.name} src={src} onLoad={() => sendMods(on)}
+        {save === null ? <p className="p-4 text-sm text-muted-foreground">Loading your save…</p> : <iframe name={`bbsave:${JSON.stringify(saveRef.current)}`} ref={frame} key={nonce} title={game.name} src={src} onLoad={() => { sendMods(on); sendSpeed(speed); }}
           sandbox="allow-scripts allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-downloads allow-presentation"
           allow="fullscreen; autoplay; gamepad; keyboard-map; clipboard-write" allowFullScreen className="h-full w-full border-0" />}
       </div>
