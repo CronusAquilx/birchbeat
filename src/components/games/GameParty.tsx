@@ -56,9 +56,16 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
     s.getTracks().forEach((t) => {
       const sender = pc.addTrack(t, s);
       if (t.kind === "video") {
+        // Prefer hardware-friendly H264, then VP8 — far lower encode delay than VP9/AV1.
+        try {
+          const tr = pc.getTransceivers().find((x) => x.sender === sender);
+          const caps = RTCRtpSender.getCapabilities?.("video")?.codecs ?? [];
+          const rank = (c: { mimeType: string }) => (c.mimeType === "video/H264" ? 0 : c.mimeType === "video/VP8" ? 1 : 2);
+          tr?.setCodecPreferences?.([...caps].sort((a, b) => rank(a) - rank(b)));
+        } catch { /* unsupported */ }
         const p = sender.getParameters();
-        p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: 6_000_000, maxFramerate: 60 }];
-        (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "maintain-framerate";
+        p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: 10_000_000, maxFramerate: 60, scaleResolutionDownBy: 1, priority: "high", networkPriority: "high" } as RTCRtpEncodingParameters];
+        (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "balanced";
         void sender.setParameters(p).catch(() => {});
       }
     });
@@ -66,7 +73,9 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
     const dc = pc.createDataChannel("input", { ordered: false, maxRetransmits: 0 });
     dc.onmessage = (e) => { try { forward(to, JSON.parse(e.data as string) as Input); } catch { /* ignore */ } };
     pc.onicecandidate = (e) => e.candidate && sendRoomMsg("games", "rtc", { type: "ice", ice: e.candidate.toJSON() } satisfies Rtc, to);
-    void pc.createOffer().then(async (o) => { await pc.setLocalDescription(o); sendRoomMsg("games", "rtc", { type: "offer", sdp: o } satisfies Rtc, to); });
+    // Start sharp instead of slowly ramping up from a blurry low bitrate.
+    const boost = (sdp = "") => sdp.replace(/(a=fmtp:\d+ [^\r\n]+)/g, "$1;x-google-start-bitrate=4000;x-google-min-bitrate=1500;x-google-max-bitrate=10000");
+    void pc.createOffer().then(async (o) => { const tuned = { type: o.type, sdp: boost(o.sdp) }; await pc.setLocalDescription(tuned); sendRoomMsg("games", "rtc", { type: "offer", sdp: tuned } satisfies Rtc, to); });
   }
 
   useEffect(() => {
@@ -94,7 +103,7 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
 
   async function share() {
     try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 60 } }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
+      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 60, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, cursor: "never" }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
       const track = s.getVideoTracks()[0] as MediaStreamTrack & { cropTo?: (t: unknown) => Promise<void> };
       const CT = (window as unknown as { CropTarget?: { fromElement: (e: Element) => Promise<unknown> } }).CropTarget;
       if (CT && track?.cropTo && wrap.current) await track.cropTo(await CT.fromElement(wrap.current)).catch(() => {});
