@@ -15,6 +15,13 @@
       "when": 1793288788019,
       "tag": "0001_noop_after_import",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793305013061,
+      "tag": "0002_game_saves",
+      "breakpoints": true
     }
   ]
 }
