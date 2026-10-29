@@ -215,7 +215,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
           </button>
         </div>
       </div>
-      {autoOpen && <div className="border-b px-3 py-2"><AutoMods save={autoOpen} onApply={(c) => void applyAuto(c)} /></div>}
+      {autoOpen && <div className="border-b px-3 py-2"><AutoMods game={game.name} save={autoOpen} onApply={(c) => void applyAuto(c)} /></div>}
       {aiOpen && (
         <form onSubmit={(e) => { e.preventDefault(); if (aiText.trim() && !aiBusy) void runAi(); }} className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
           <input value={aiText} onChange={(e) => setAiText(e.target.value)} placeholder="Describe a mod, e.g. give me 1,000,000 coins" className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-sm" />
