@@ -54,7 +54,8 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
     const pc = new RTCPeerConnection(ICE);
     peers.current.set(to, pc);
     s.getTracks().forEach((t) => {
-      const sender = pc.addTrack(t, s);
+      // Separate streams per track: stops the viewer holding video back to lip-sync with audio.
+      const sender = pc.addTrack(t, new MediaStream([t]));
       if (t.kind === "video") {
         // Prefer hardware-friendly H264, then VP8 — far lower encode delay than VP9/AV1.
         try {
@@ -64,8 +65,9 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
           tr?.setCodecPreferences?.([...caps].sort((a, b) => rank(a) - rank(b)));
         } catch { /* unsupported */ }
         const p = sender.getParameters();
-        p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: 6_000_000, maxFramerate: 30, scaleResolutionDownBy: 1, priority: "high", networkPriority: "high" } as RTCRtpEncodingParameters];
-        (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "maintain-resolution";
+        p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: 4_000_000, maxFramerate: 30, priority: "high", networkPriority: "high" } as RTCRtpEncodingParameters];
+        // Keep frames flowing: under load lower sharpness, never freeze the picture.
+        (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "maintain-framerate";
         void sender.setParameters(p).catch(() => {});
       }
     });
@@ -73,8 +75,9 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
     const dc = pc.createDataChannel("input", { ordered: false, maxRetransmits: 0 });
     dc.onmessage = (e) => { try { forward(to, JSON.parse(e.data as string) as Input); } catch { /* ignore */ } };
     pc.onicecandidate = (e) => e.candidate && sendRoomMsg("games", "rtc", { type: "ice", ice: e.candidate.toJSON() } satisfies Rtc, to);
-    // Start sharp instead of slowly ramping up from a blurry low bitrate.
-    const boost = (sdp = "") => sdp.replace(/(a=fmtp:\d+ [^\r\n]+)/g, "$1;x-google-start-bitrate=4000;x-google-min-bitrate=1500;x-google-max-bitrate=10000");
+    // Start reasonably sharp, but never force a bitrate floor (a floor above the
+    // real connection speed queues frames up and causes seconds of delay).
+    const boost = (sdp = "") => sdp.replace(/(a=fmtp:\d+ [^\r\n]+)/g, "$1;x-google-start-bitrate=2000");
     void pc.createOffer().then(async (o) => { const tuned = { type: o.type, sdp: boost(o.sdp) }; await pc.setLocalDescription(tuned); sendRoomMsg("games", "rtc", { type: "offer", sdp: tuned } satisfies Rtc, to); }).catch(() => {});
   }
 
@@ -103,11 +106,12 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
 
   async function share() {
     try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30, max: 30 }, width: { ideal: 1280, max: 1600 }, height: { ideal: 720, max: 900 }, cursor: "never" }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
+      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30, max: 30 }, width: { max: 1280 }, height: { max: 720 }, cursor: "never" }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
       const track = s.getVideoTracks()[0] as MediaStreamTrack & { cropTo?: (t: unknown) => Promise<void> };
       const CT = (window as unknown as { CropTarget?: { fromElement: (e: Element) => Promise<unknown> } }).CropTarget;
       if (CT && track?.cropTo && wrap.current) await track.cropTo(await CT.fromElement(wrap.current)).catch(() => {});
-      if (track) track.contentHint = "detail";
+      // "motion" = game mode. "detail" (screen-share mode) drops to a few frames a second under load.
+      if (track) track.contentHint = "motion";
       track?.addEventListener("ended", () => setStream(null));
       setStream(s);
       room?.members.filter((m) => m.id !== myRoomId()).forEach((m) => call(m.id, s));

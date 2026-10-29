@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Gamepad2, Globe, Maximize, RotateCw, Search } from "lucide-react";
+import { ArrowLeft, Gamepad2, Globe, Maximize, RotateCw, Search, Wand2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { modsFor } from "@/lib/games/mods";
 import { RoomButton } from "@/components/RoomButton";
 import { useRoom } from "@/lib/rooms";
 import { GuestScreen, HostParty } from "@/components/games/GameParty";
@@ -117,12 +119,31 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
   const wrap = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [nonce, setNonce] = useState(0);
+  const mods = useMemo(() => modsFor(game.name), [game.name]);
+  const [on, setOn] = useState<Record<string, boolean>>({});
+  const sendMods = (state: Record<string, boolean>) => {
+    mods.forEach((m) => { try { frame.current?.contentWindow?.postMessage({ bbMod: 1, prop: m.prop, value: state[m.id] ? m.value : null }, "*"); } catch { /* frame gone */ } });
+  };
+  const toggle = (id: string, v: boolean) => setOn((s) => { const n = { ...s, [id]: v }; sendMods(n); return n; });
+  const src = `/api/public/games/play/${game.file}${mods.length ? `?mods=${mods.map((m) => m.prop).join(",")}` : ""}`;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <button onClick={onBack} className="rounded-md border p-1.5" aria-label="Back"><ArrowLeft className="size-4" /></button>
         <p className="truncate font-medium">{game.name}</p>
         <div className="ml-auto flex gap-2">
+          {mods.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="Mod menu"><Wand2 className="size-4" /> Mods</DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Mod menu</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {mods.map((m) => (
+                  <DropdownMenuCheckboxItem key={m.id} checked={!!on[m.id]} onCheckedChange={(v) => toggle(m.id, !!v)} onSelect={(e) => e.preventDefault()}>{m.label}</DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <HostParty game={game} wrap={wrap} frame={frame} />
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
           <button onClick={() => wrap.current?.requestFullscreen?.()} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="Fullscreen">
@@ -131,7 +152,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
         </div>
       </div>
       <div ref={wrap} className="relative min-h-0 flex-1 overflow-hidden bg-background [contain:strict]">
-        <iframe ref={frame} key={nonce} title={game.name} src={`/api/public/games/play/${game.file}`}
+        <iframe ref={frame} key={nonce} title={game.name} src={src} onLoad={() => sendMods(on)}
           sandbox="allow-scripts allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-downloads allow-presentation"
           allow="fullscreen; autoplay; gamepad; keyboard-map; clipboard-write" allowFullScreen className="h-full w-full border-0" />
       </div>
