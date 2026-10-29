@@ -202,7 +202,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
         </form>
       )}
       <div ref={wrap} className="relative min-h-0 flex-1 overflow-hidden bg-background [contain:strict]">
-        {save === null ? <p className="p-4 text-sm text-muted-foreground">Loading your save…</p> : <iframe name={`bbsave:${JSON.stringify(save)}`} ref={frame} key={nonce} title={game.name} src={src} onLoad={() => sendMods(on)}
+        {save === null ? <p className="p-4 text-sm text-muted-foreground">Loading your save…</p> : <iframe name={`bbsave:${JSON.stringify(saveRef.current)}`} ref={frame} key={nonce} title={game.name} src={src} onLoad={() => sendMods(on)}
           sandbox="allow-scripts allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-downloads allow-presentation"
           allow="fullscreen; autoplay; gamepad; keyboard-map; clipboard-write" allowFullScreen className="h-full w-full border-0" />}
       </div>

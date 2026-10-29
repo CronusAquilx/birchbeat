@@ -21,6 +21,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedVoiceRouteImport } from './routes/_authenticated/voice'
 import { Route as AuthenticatedWebRouteImport } from './routes/_authenticated/web'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiGameAiRouteImport } from './routes/api/game-ai'
 import { Route as ApiMoviesRouteImport } from './routes/api/movies'
 import { Route as ApiMusicRouteImport } from './routes/api/music'
 import { Route as ApiMusicAiRouteImport } from './routes/api/music-ai'
@@ -96,6 +97,11 @@ const AuthenticatedWebRoute = AuthenticatedWebRouteImport.update({
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGameAiRoute = ApiGameAiRouteImport.update({
+  id: '/api/game-ai',
+  path: '/api/game-ai',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMoviesRoute = ApiMoviesRouteImport.update({
@@ -203,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/voice': typeof AuthenticatedVoiceRoute
   '/web': typeof AuthenticatedWebRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/game-ai': typeof ApiGameAiRoute
   '/api/movies': typeof ApiMoviesRoute
   '/api/music': typeof ApiMusicRoute
   '/api/music-ai': typeof ApiMusicAiRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/voice': typeof AuthenticatedVoiceRoute
   '/web': typeof AuthenticatedWebRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/game-ai': typeof ApiGameAiRoute
   '/api/movies': typeof ApiMoviesRoute
   '/api/music': typeof ApiMusicRoute
   '/api/music-ai': typeof ApiMusicAiRoute
@@ -265,6 +273,7 @@ export interface FileRoutesById {
   '/_authenticated/voice': typeof AuthenticatedVoiceRoute
   '/_authenticated/web': typeof AuthenticatedWebRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/game-ai': typeof ApiGameAiRoute
   '/api/movies': typeof ApiMoviesRoute
   '/api/music': typeof ApiMusicRoute
   '/api/music-ai': typeof ApiMusicAiRoute
@@ -297,6 +306,7 @@ export interface FileRouteTypes {
     | '/voice'
     | '/web'
     | '/api/chat'
+    | '/api/game-ai'
     | '/api/movies'
     | '/api/music'
     | '/api/music-ai'
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/voice'
     | '/web'
     | '/api/chat'
+    | '/api/game-ai'
     | '/api/movies'
     | '/api/music'
     | '/api/music-ai'
@@ -358,6 +369,7 @@ export interface FileRouteTypes {
     | '/_authenticated/voice'
     | '/_authenticated/web'
     | '/api/chat'
+    | '/api/game-ai'
     | '/api/movies'
     | '/api/music'
     | '/api/music-ai'
@@ -382,6 +394,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiGameAiRoute: typeof ApiGameAiRoute
   ApiMoviesRoute: typeof ApiMoviesRoute
   ApiMusicRoute: typeof ApiMusicRoute
   ApiMusicAiRoute: typeof ApiMusicAiRoute
@@ -477,6 +490,13 @@ declare module '@tanstack/react-router' {
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/game-ai': {
+      id: '/api/game-ai'
+      path: '/api/game-ai'
+      fullPath: '/api/game-ai'
+      preLoaderRoute: typeof ApiGameAiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/movies': {
@@ -647,6 +667,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiGameAiRoute: ApiGameAiRoute,
   ApiMoviesRoute: ApiMoviesRoute,
   ApiMusicRoute: ApiMusicRoute,
   ApiMusicAiRoute: ApiMusicAiRoute,
