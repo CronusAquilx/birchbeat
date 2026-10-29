@@ -9,6 +9,8 @@ const MODS: Record<string, GameMod[]> = {
   // Retro Bowl (GameMaker): names come from the game's savegame block.
   "Retro Bowl": [
     { id: "credits", label: "Infinite coaching credits", prop: "_on", value: 99999 },
+    // Roster space is limited by the salary cap / recruitment credit cap; lifting both = unlimited roster.
+    { id: "roster", label: "Unlimited roster size", prop: "_lp", value: 9999 },
     { id: "cap", label: "Huge salary cap ($999M)", prop: "_aQ", value: 999 },
     { id: "fans", label: "Max fan support", prop: "_nO", value: 100 },
     { id: "boss", label: "Owner always happy", prop: "_Nr", value: 100 },
