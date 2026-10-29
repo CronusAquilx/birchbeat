@@ -146,6 +146,7 @@ export function GuestScreen() {
   const mouse = (type: string) => (e: React.MouseEvent) => {
     box.current?.focus();
     const v = video.current; if (!v) return;
+    if (v.muted) { v.muted = false; void v.play().catch(() => {}); }
     const r = v.getBoundingClientRect();
     // Map to the actual video picture (object-contain letterboxing).
     const vw = v.videoWidth || r.width, vh = v.videoHeight || r.height, sc = Math.min(r.width / vw, r.height / vh);
@@ -166,7 +167,7 @@ export function GuestScreen() {
       </div>
       <div ref={box} tabIndex={0} onKeyDown={key("keydown")} onKeyUp={key("keyup")} onMouseDown={mouse("mousedown")} onMouseUp={mouse("mouseup")} onMouseMove={mouse("mousemove")} onContextMenu={(e) => e.preventDefault()}
         className="relative flex-1 bg-background outline-none">
-        <video ref={video} autoPlay playsInline className="h-full w-full object-contain" />
+        <video ref={video} autoPlay muted playsInline className="h-full w-full object-contain" />
         {!live && <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">Waiting for the host to share their screen…</p>}
       </div>
     </div>
