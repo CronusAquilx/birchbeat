@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Gamepad2, Globe, Maximize, RotateCw, Search, Wand2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { presetsFor, modsFor } from "@/lib/games/mods";
+import { presetsFor, modsFor, mapReaderFor } from "@/lib/games/mods";
 import { RoomButton } from "@/components/RoomButton";
 import { useRoom } from "@/lib/rooms";
 import { GuestScreen, HostParty } from "@/components/games/GameParty";
@@ -172,7 +172,12 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
       setAiMsg("Mod applied! The game reloaded with it."); setAiText("");
     } finally { setAiBusy(false); }
   };
-  const src = `/api/public/games/play/${game.file}${mods.length ? `?mods=${mods.map((m) => m.prop).join(",")}` : ""}`;
+  const qs = new URLSearchParams();
+  const props = mods.filter((m) => !m.prop.startsWith("map:")).map((m) => m.prop);
+  if (props.length) qs.set("mods", props.join(","));
+  const mr = mapReaderFor(game.name);
+  if (mr) { qs.set("mapfn", mr.fn); qs.set("probe", mr.probe); }
+  const src = `/api/public/games/play/${game.file}${qs.size ? `?${qs}` : ""}`;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-3 py-2">

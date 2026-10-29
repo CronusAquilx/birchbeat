@@ -17,8 +17,18 @@ const MODS: Record<string, GameMod[]> = {
     { id: "training", label: "Max training facility", prop: "_sG", value: 10 },
     { id: "rehab", label: "Max rehab facility", prop: "_BG", value: 10 },
     { id: "qbnrg", label: "QB never tired", prop: "_ix", value: 100 },
+    // Player stats live in GameMaker ds_maps; the shim wraps the map reader (MAP_READER).
+    { id: "pall", label: "Max ALL player stats", prop: "map:*", value: 10 },
+    { id: "pspeed", label: "Max player speed", prop: "map:speed", value: 10 },
+    { id: "pskill", label: "Max player skill", prop: "map:skill", value: 10 },
+    { id: "pstr", label: "Max player strength", prop: "map:strength", value: 10 },
+    { id: "pstam", label: "Max player stamina", prop: "map:stamina", value: 10 },
   ],
 };
+
+/** Compiled ds_map_find_value name + a key only player maps have. */
+const MAP_READER: Record<string, { fn: string; probe: string }> = { "Retro Bowl": { fn: "_5n", probe: "max_skill" } };
+export const mapReaderFor = (name: string) => MAP_READER[name];
 
 export const modsFor = (name: string): GameMod[] => MODS[name] ?? [];
 
