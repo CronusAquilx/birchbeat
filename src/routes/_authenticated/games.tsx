@@ -130,7 +130,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
           </button>
         </div>
       </div>
-      <div ref={wrap} className="flex-1 bg-background">
+      <div ref={wrap} className="relative min-h-0 flex-1 overflow-hidden bg-background [contain:strict]">
         <iframe ref={frame} key={nonce} title={game.name} src={`/api/public/games/play/${game.file}`}
           sandbox="allow-scripts allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-downloads allow-presentation"
           allow="fullscreen; autoplay; gamepad; keyboard-map; clipboard-write" allowFullScreen className="h-full w-full border-0" />
