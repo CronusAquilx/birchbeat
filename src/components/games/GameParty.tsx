@@ -144,6 +144,7 @@ const keyCode = (k: string) => KC[k] ?? (k.length === 1 ? k.toUpperCase().charCo
 export function GuestScreen() {
   const room = useRoom("games");
   const video = useRef<HTMLVideoElement>(null);
+  const audio = useRef<HTMLAudioElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const [live, setLive] = useState(false);
   const chan = useRef<RTCDataChannel | null>(null);
@@ -164,7 +165,12 @@ export function GuestScreen() {
         pc.ontrack = (e) => {
           // Play frames as soon as they arrive instead of buffering.
           const rc = e.receiver as RTCRtpReceiver & { playoutDelayHint?: number; jitterBufferTarget?: number };
-          try { rc.playoutDelayHint = 0; rc.jitterBufferTarget = 0; } catch { /* unsupported */ } if (video.current) { video.current.srcObject = e.streams[0] ?? null; setLive(true); } };
+          try { rc.playoutDelayHint = 0; rc.jitterBufferTarget = 0; } catch { /* unsupported */ }
+          // Video and sound play in separate elements so video never waits on audio.
+          const el = e.track.kind === "video" ? video.current : audio.current;
+          if (el) { el.srcObject = new MediaStream([e.track]); void el.play().catch(() => {}); }
+          if (e.track.kind === "video") setLive(true);
+        };
         pc.onicecandidate = (e) => e.candidate && sendRoomMsg("games", "rtc", { type: "ice", ice: e.candidate.toJSON() } satisfies Rtc, m.from);
         void pc.setRemoteDescription(d.sdp).then(async () => { const a = await pc!.createAnswer(); await pc!.setLocalDescription(a); sendRoomMsg("games", "rtc", { type: "answer", sdp: a } satisfies Rtc, m.from); }).catch(() => {});
       }
@@ -184,7 +190,7 @@ export function GuestScreen() {
   const mouse = (type: string) => (e: React.MouseEvent) => {
     box.current?.focus();
     const v = video.current; if (!v) return;
-    if (v.muted) { v.muted = false; void v.play().catch(() => {}); }
+    const a = audio.current; if (a?.muted) { a.muted = false; void a.play().catch(() => {}); }
     const r = v.getBoundingClientRect();
     // Map to the actual video picture (object-contain letterboxing).
     const vw = v.videoWidth || r.width, vh = v.videoHeight || r.height, sc = Math.min(r.width / vw, r.height / vh);
@@ -208,6 +214,7 @@ export function GuestScreen() {
       <div ref={box} tabIndex={0} onKeyDown={key("keydown")} onKeyUp={key("keyup")} onMouseDown={mouse("mousedown")} onMouseUp={mouse("mouseup")} onMouseMove={mouse("mousemove")} onMouseLeave={(e) => { if (e.buttons) mouse("mouseup")(e); }} onContextMenu={(e) => e.preventDefault()}
         className="relative flex-1 cursor-crosshair select-none bg-background outline-none">
         <video ref={video} autoPlay muted playsInline className="pointer-events-none absolute inset-0 h-full w-full object-contain" />
+        <audio ref={audio} autoPlay muted className="hidden" />
         {!live && <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">Waiting for the host to share their screen…</p>}
       </div>
     </div>

@@ -24,3 +24,4 @@
 - User playlists live in the `playlists` table (tracks as jsonb); the AI DJ is the authenticated `/api/music-ai` route (hosted model → "Artist - Title" lines → Deezer lookups).
 - The first-login focus choice (`prefs.focus`, mirrored to `profiles.focus`) hides other sections in `AppShell`; custom backgrounds upload to the private `backgrounds` bucket and are shown via a long-lived signed URL.
 - Games load through `/api/public/games`, which also relays an allowlist of outside CDN hosts (jsDelivr, GitHub raw, unpkg, cdnjs) and rewrites their URLs in game files plus at runtime, because school/work networks block those CDNs.
+- Game cheats (mod menu) are data in `src/lib/games/mods.ts`: each locks a compiled game variable name; the game shim installs Object.prototype getters for names passed via `?mods=` and toggles them by postMessage, so cheats switch live without reloading.
