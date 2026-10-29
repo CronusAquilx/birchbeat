@@ -10,7 +10,8 @@ import { MobileMenuButton } from "@/components/astra/AppShell";
 import { usePrefs } from "@/lib/astra/prefs";
 import { openProxied } from "@/lib/astra/proxy";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles } from "lucide-react";
+import { Sparkles, SlidersHorizontal } from "lucide-react";
+import { AutoMods } from "@/components/games/AutoMods";
 
 export const Route = createFileRoute("/_authenticated/games")({
   head: () => ({ meta: [{ title: "Games — BirchBlock" }] }),
@@ -131,6 +132,12 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
   const sendSpeed = (v: number) => { try { frame.current?.contentWindow?.postMessage({ bbSpeed: 1, value: v }, "*"); } catch { /* frame gone */ } };
   const [save, setSave] = useState<Record<string, string> | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [autoOpen, setAutoOpen] = useState<Record<string, string> | null>(null);
+  const applyAuto = async (changes: Record<string, string>) => {
+    ignoreSaves.current = Date.now() + 6000;
+    const next = { ...saveRef.current, ...changes };
+    await persist(next); setSave(next); setAutoOpen(next); setNonce((n) => n + 1);
+  };
   const [aiText, setAiText] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState("");
@@ -199,6 +206,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
           <select value={speed} onChange={(e) => { const v = Number(e.target.value); setSpeed(v); sendSpeed(v); }} className="rounded-md border bg-background px-2 py-1.5 text-sm" aria-label="Game speed">
             {[0.25, 0.5, 0.75, 1, 1.5, 2, 3].map((v) => <option key={v} value={v}>{v}x speed</option>)}
           </select>
+          <button onClick={() => setAutoOpen((v) => (v ? null : { ...saveRef.current }))} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="Auto mod menu"><SlidersHorizontal className="size-4" /> Auto mods</button>
           <button onClick={() => setAiOpen((v) => !v)} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="AI mod maker"><Sparkles className="size-4" /> AI mod</button>
           <HostParty game={game} wrap={wrap} frame={frame} />
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
@@ -207,6 +215,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
           </button>
         </div>
       </div>
+      {autoOpen && <div className="border-b px-3 py-2"><AutoMods save={autoOpen} onApply={(c) => void applyAuto(c)} /></div>}
       {aiOpen && (
         <form onSubmit={(e) => { e.preventDefault(); if (aiText.trim() && !aiBusy) void runAi(); }} className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
           <input value={aiText} onChange={(e) => setAiText(e.target.value)} placeholder="Describe a mod, e.g. give me 1,000,000 coins" className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-sm" />
