@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Hand, MonitorUp, Users } from "lucide-react";
+import { Hand, Maximize, MonitorUp, Users } from "lucide-react";
 import { toast } from "sonner";
 import { myRoomId, onRoomMsg, sendRoomMsg, setRoomState, useRoom, type GameState } from "@/lib/rooms";
 
@@ -10,7 +10,7 @@ import { myRoomId, onRoomMsg, sendRoomMsg, setRoomState, useRoom, type GameState
  */
 const ICE = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }] };
 type Rtc = { type: "offer" | "answer" | "ice"; sdp?: RTCSessionDescriptionInit; ice?: RTCIceCandidateInit };
-type Input = { t: "key" | "mouse"; type: string; key?: string; code?: string; kc?: number; x?: number; y?: number; b?: number };
+type Input = { t: "key" | "mouse"; type: string; key?: string; code?: string; kc?: number; x?: number; y?: number; b?: number; bs?: number };
 
 const canControl = (g: GameState | undefined, id: string) => !!g && (g.mode === "all" || g.controller === id);
 
@@ -53,7 +53,18 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
     peers.current.get(to)?.close();
     const pc = new RTCPeerConnection(ICE);
     peers.current.set(to, pc);
-    s.getTracks().forEach((t) => pc.addTrack(t, s));
+    s.getTracks().forEach((t) => {
+      const sender = pc.addTrack(t, s);
+      if (t.kind === "video") {
+        const p = sender.getParameters();
+        p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: 6_000_000, maxFramerate: 60 }];
+        (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "maintain-framerate";
+        void sender.setParameters(p).catch(() => {});
+      }
+    });
+    // Fast, unordered input channel: guests' mouse/keys skip the room server.
+    const dc = pc.createDataChannel("input", { ordered: false, maxRetransmits: 0 });
+    dc.onmessage = (e) => { try { forward(to, JSON.parse(e.data as string) as Input); } catch { /* ignore */ } };
     pc.onicecandidate = (e) => e.candidate && sendRoomMsg("games", "rtc", { type: "ice", ice: e.candidate.toJSON() } satisfies Rtc, to);
     void pc.createOffer().then(async (o) => { await pc.setLocalDescription(o); sendRoomMsg("games", "rtc", { type: "offer", sdp: o } satisfies Rtc, to); });
   }
@@ -68,23 +79,26 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
         if (d.type === "answer" && d.sdp) void pc.setRemoteDescription(d.sdp);
         if (d.type === "ice" && d.ice) void pc.addIceCandidate(d.ice).catch(() => {});
       }
-      if (m.event === "input") {
-        const g = (useRoomSnapshot() ?? room)?.state?.game;
-        if (!canControl(g, m.from)) return;
-        frame.current?.contentWindow?.postMessage({ bbInput: 1, ...(m.data as Input) }, "*");
-      }
+      if (m.event === "input") forward(m.from, m.data as Input);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host, stream, room?.state?.game?.mode, room?.state?.game?.controller]);
+
+  function forward(from: string, i: Input) {
+    const g = (useRoomSnapshot() ?? room)?.state?.game;
+    if (!canControl(g, from)) return;
+    frame.current?.contentWindow?.postMessage({ bbInput: 1, ...i }, "*");
+  }
 
   useEffect(() => () => { peers.current.forEach((p) => p.close()); stream?.getTracks().forEach((t) => t.stop()); }, [stream]);
 
   async function share() {
     try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
+      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 60 } }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
       const track = s.getVideoTracks()[0] as MediaStreamTrack & { cropTo?: (t: unknown) => Promise<void> };
       const CT = (window as unknown as { CropTarget?: { fromElement: (e: Element) => Promise<unknown> } }).CropTarget;
       if (CT && track?.cropTo && wrap.current) await track.cropTo(await CT.fromElement(wrap.current)).catch(() => {});
+      if (track) track.contentHint = "motion";
       track?.addEventListener("ended", () => setStream(null));
       setStream(s);
       room?.members.filter((m) => m.id !== myRoomId()).forEach((m) => call(m.id, s));
@@ -119,6 +133,7 @@ export function GuestScreen() {
   const video = useRef<HTMLVideoElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const [live, setLive] = useState(false);
+  const chan = useRef<RTCDataChannel | null>(null);
   const g = room?.state?.game;
   const hostId = room?.members.find((m) => m.host)?.id;
   const allowed = canControl(g, myRoomId());
@@ -132,7 +147,11 @@ export function GuestScreen() {
       if (d.type === "offer" && d.sdp) {
         pc?.close();
         pc = new RTCPeerConnection(ICE);
-        pc.ontrack = (e) => { if (video.current) { video.current.srcObject = e.streams[0] ?? null; setLive(true); } };
+        pc.ondatachannel = (e) => { chan.current = e.channel; };
+        pc.ontrack = (e) => {
+          // Play frames as soon as they arrive instead of buffering.
+          const rc = e.receiver as RTCRtpReceiver & { playoutDelayHint?: number; jitterBufferTarget?: number };
+          try { rc.playoutDelayHint = 0; rc.jitterBufferTarget = 0; } catch { /* unsupported */ } if (video.current) { video.current.srcObject = e.streams[0] ?? null; setLive(true); } };
         pc.onicecandidate = (e) => e.candidate && sendRoomMsg("games", "rtc", { type: "ice", ice: e.candidate.toJSON() } satisfies Rtc, m.from);
         void pc.setRemoteDescription(d.sdp).then(async () => { const a = await pc!.createAnswer(); await pc!.setLocalDescription(a); sendRoomMsg("games", "rtc", { type: "answer", sdp: a } satisfies Rtc, m.from); });
       }
@@ -142,7 +161,13 @@ export function GuestScreen() {
     return () => { off(); pc?.close(); };
   }, [hostId]);
 
-  const send = (i: Input) => { if (allowed && hostId) sendRoomMsg("games", "input", i, hostId); };
+  const send = (i: Input) => {
+    if (!allowed || !hostId) return;
+    const c = chan.current;
+    if (c?.readyState === "open") c.send(JSON.stringify(i));
+    else if (i.type !== "mousemove" || i.bs) sendRoomMsg("games", "input", i, hostId);
+  };
+  const lastMove = useRef(0);
   const mouse = (type: string) => (e: React.MouseEvent) => {
     box.current?.focus();
     const v = video.current; if (!v) return;
@@ -153,8 +178,8 @@ export function GuestScreen() {
     const w = vw * sc, h = vh * sc, ox = (r.width - w) / 2, oy = (r.height - h) / 2;
     const x = (e.clientX - r.left - ox) / w, y = (e.clientY - r.top - oy) / h;
     if (x < 0 || y < 0 || x > 1 || y > 1) return;
-    if (type === "mousemove" && !e.buttons && Math.random() > 0.3) return; // thin out hover traffic
-    send({ t: "mouse", type, x, y, b: e.button });
+    if (type === "mousemove" && !e.buttons) { const now = performance.now(); if (now - lastMove.current < 33) return; lastMove.current = now; } // thin out hover traffic
+    send({ t: "mouse", type, x, y, b: e.button, bs: e.buttons });
   };
   const key = (type: string) => (e: React.KeyboardEvent) => { e.preventDefault(); if (type === "keydown" && e.repeat) return; send({ t: "key", type, key: e.key, code: e.code, kc: keyCode(e.key) }); };
 
@@ -163,10 +188,12 @@ export function GuestScreen() {
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
         <Users className="size-4" /><p className="truncate font-medium">{g?.name}</p>
         <span className="text-xs text-muted-foreground">{allowed ? "You can control the game — click it and play" : "Watching — wait for your turn"}</span>
-        <div className="ml-auto flex items-center gap-2"><TurnControls /><RoomButton kind="games" /></div>
+        <div className="ml-auto flex items-center gap-2"><TurnControls />
+          <button onClick={() => box.current?.requestFullscreen?.()} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm hover:bg-accent" aria-label="Fullscreen"><Maximize className="size-4" />Fullscreen</button>
+          <RoomButton kind="games" /></div>
       </div>
-      <div ref={box} tabIndex={0} onKeyDown={key("keydown")} onKeyUp={key("keyup")} onMouseDown={mouse("mousedown")} onMouseUp={mouse("mouseup")} onMouseMove={mouse("mousemove")} onContextMenu={(e) => e.preventDefault()}
-        className="relative flex-1 bg-background outline-none">
+      <div ref={box} tabIndex={0} onKeyDown={key("keydown")} onKeyUp={key("keyup")} onMouseDown={mouse("mousedown")} onMouseUp={mouse("mouseup")} onMouseMove={mouse("mousemove")} onMouseLeave={(e) => { if (e.buttons) mouse("mouseup")(e); }} onContextMenu={(e) => e.preventDefault()}
+        className="relative flex-1 cursor-crosshair select-none bg-background outline-none">
         <video ref={video} autoPlay muted playsInline className="h-full w-full object-contain" />
         {!live && <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">Waiting for the host to share their screen…</p>}
       </div>

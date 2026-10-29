@@ -40,8 +40,10 @@ addEventListener("pointerdown",function(){try{window.focus()}catch(e){}},true);
 addEventListener("load",function(){try{window.focus()}catch(e){}});
 addEventListener("message",function(ev){var d=ev.data;if(!d||d.bbInput!==1)return;try{
 if(d.t==="key"){var o={key:d.key,code:d.code,keyCode:d.kc,which:d.kc,bubbles:true,cancelable:true};var tg=document.activeElement||document.body;[tg,document,window].forEach(function(x){x.dispatchEvent(new KeyboardEvent(d.type,o))});}
-else{var x=d.x*innerWidth,y=d.y*innerHeight,el=document.elementFromPoint(x,y)||document.body;var o2={clientX:x,clientY:y,button:d.b||0,buttons:d.type.indexOf("down")>0?1:0,bubbles:true,cancelable:true,pointerId:1,pointerType:"mouse",isPrimary:true};
-var pt=d.type.replace("mouse","pointer");try{el.dispatchEvent(new PointerEvent(pt,o2))}catch(e){}el.dispatchEvent(new MouseEvent(d.type,o2));if(d.type==="mouseup")el.dispatchEvent(new MouseEvent("click",o2));}
+else{var x=d.x*innerWidth,y=d.y*innerHeight,el=(window.__bbDrag&&d.type!=="mousedown"?window.__bbDrag:null)||document.elementFromPoint(x,y)||document.body;
+var bs=typeof d.bs==="number"?d.bs:(d.type==="mousedown"?1:0);var o2={clientX:x,clientY:y,screenX:x,screenY:y,pageX:x,pageY:y,button:d.b||0,buttons:bs,bubbles:true,cancelable:true,composed:true,view:window,pointerId:1,pointerType:"mouse",isPrimary:true,pressure:bs?0.5:0};
+if(d.type==="mousedown")window.__bbDrag=el;var pt=d.type.replace("mouse","pointer");try{el.dispatchEvent(new PointerEvent(pt,o2))}catch(e){}el.dispatchEvent(new MouseEvent(d.type,o2));
+if(d.type==="mouseup"){el.dispatchEvent(new MouseEvent("click",o2));window.__bbDrag=null}}
 }catch(e){}});})();</script>`;
 
 const injectShim = (html: string) => (/<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + SHIM) : SHIM + html);
