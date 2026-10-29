@@ -23,3 +23,4 @@
 - The music player is an app-wide singleton (`src/lib/music/player.ts`, audio element + hidden YouTube frame appended to body) with `NowPlayingBar` in `AppShell`, so playback survives page changes; song matching scores candidates against Deezer title/artist/duration to prefer original recordings.
 - User playlists live in the `playlists` table (tracks as jsonb); the AI DJ is the authenticated `/api/music-ai` route (hosted model → "Artist - Title" lines → Deezer lookups).
 - The first-login focus choice (`prefs.focus`, mirrored to `profiles.focus`) hides other sections in `AppShell`; custom backgrounds upload to the private `backgrounds` bucket and are shown via a long-lived signed URL.
+- Games load through `/api/public/games`, which also relays an allowlist of outside CDN hosts (jsDelivr, GitHub raw, unpkg, cdnjs) and rewrites their URLs in game files plus at runtime, because school/work networks block those CDNs.
