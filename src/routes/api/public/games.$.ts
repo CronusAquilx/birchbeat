@@ -43,7 +43,6 @@ if(d.t==="key"){var o={key:d.key,code:d.code,keyCode:d.kc,which:d.kc,bubbles:tru
 else{var x=d.x*innerWidth,y=d.y*innerHeight,el=(window.__bbDrag&&d.type!=="mousedown"?window.__bbDrag:null)||document.elementFromPoint(x,y)||document.body;
 var bs=typeof d.bs==="number"?d.bs:(d.type==="mousedown"?1:0);var o2={clientX:x,clientY:y,screenX:x,screenY:y,pageX:x,pageY:y,button:d.b||0,buttons:bs,bubbles:true,cancelable:true,composed:true,view:window,pointerId:1,pointerType:"mouse",isPrimary:true,pressure:bs?0.5:0};
 if(d.type==="mousedown")window.__bbDrag=el;var pt=d.type.replace("mouse","pointer");try{el.dispatchEvent(new PointerEvent(pt,o2))}catch(e){}el.dispatchEvent(new MouseEvent(d.type,o2));
-try{var tt=d.type==="mousedown"?"touchstart":d.type==="mouseup"?"touchend":bs?"touchmove":"";if(tt&&window.Touch){var tc=new Touch({identifier:1,target:el,clientX:x,clientY:y,pageX:x,pageY:y,screenX:x,screenY:y});el.dispatchEvent(new TouchEvent(tt,{touches:tt==="touchend"?[]:[tc],targetTouches:tt==="touchend"?[]:[tc],changedTouches:[tc],bubbles:true,cancelable:true}))}}catch(e){}
 if(d.type==="mouseup"){el.dispatchEvent(new MouseEvent("click",o2));window.__bbDrag=null}}
 }catch(e){}});})();</script>`;
 
