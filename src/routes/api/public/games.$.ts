@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/public/games/$")({
           return Response.json(games, { headers: { "cache-control": "public, max-age=1800" } });
         }
 
-        if (kind === "play" && parts.length > 2) {
+        if (kind === "play" && (parts.length > 2 || (file && !/\.html?$/i.test(file)))) {
           // Relative assets (scripts, images, sounds) requested by a game page.
           const rest = parts.slice(1);
           if (!rest.every((x) => SAFE.test(x) && x !== "..")) return new Response("Not found", { status: 404 });

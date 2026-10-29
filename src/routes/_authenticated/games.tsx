@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Gamepad2, Globe, Maximize, RotateCw, Search } from "lucide-react";
+import { RoomButton } from "@/components/RoomButton";
+import { useRoom } from "@/lib/rooms";
+import { GuestScreen, HostParty } from "@/components/games/GameParty";
 import { MobileMenuButton } from "@/components/astra/AppShell";
 import { usePrefs } from "@/lib/astra/prefs";
 import { openProxied } from "@/lib/astra/proxy";
@@ -84,6 +87,8 @@ function Library() {
     return (games ?? []).filter((g) => !s || g.name.toLowerCase().includes(s));
   }, [games, q]);
 
+  const room = useRoom("games");
+  if (room && !room.host && room.state?.game) return <GuestScreen />;
   if (playing) return <Player game={playing} onBack={() => setPlaying(null)} />;
 
   return (
@@ -92,7 +97,9 @@ function Library() {
         <Search className="size-4 text-muted-foreground" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={games ? `Search ${games.length} games` : "Loading games…"}
           className="flex-1 bg-transparent text-sm outline-none" />
+        <RoomButton kind="games" />
       </div>
+      {room && !room.host && <p className="border-b px-3 py-2 text-xs text-muted-foreground">Waiting for the host to start a game…</p>}
       {error && <p className="p-4 text-sm text-destructive">Couldn't load the game list ({error}). Try again later or use "Actual website".</p>}
       <div className="grid flex-1 auto-rows-min grid-cols-2 gap-3 overflow-y-auto p-3 sm:grid-cols-4 lg:grid-cols-6">
         {shown.slice(0, 300).map((g) => (
@@ -108,6 +115,7 @@ function Library() {
 
 function Player({ game, onBack }: { game: Game; onBack: () => void }) {
   const wrap = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLIFrameElement>(null);
   const [nonce, setNonce] = useState(0);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -115,6 +123,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
         <button onClick={onBack} className="rounded-md border p-1.5" aria-label="Back"><ArrowLeft className="size-4" /></button>
         <p className="truncate font-medium">{game.name}</p>
         <div className="ml-auto flex gap-2">
+          <HostParty game={game} wrap={wrap} frame={frame} />
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
           <button onClick={() => wrap.current?.requestFullscreen?.()} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="Fullscreen">
             <Maximize className="size-4" /> Fullscreen
@@ -122,9 +131,9 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
         </div>
       </div>
       <div ref={wrap} className="flex-1 bg-background">
-        <iframe key={nonce} title={game.name} src={`/api/public/games/play/${game.file}`}
-          sandbox="allow-scripts allow-pointer-lock allow-forms allow-modals allow-orientation-lock"
-          allow="fullscreen; autoplay; gamepad" allowFullScreen className="h-full w-full border-0" />
+        <iframe ref={frame} key={nonce} title={game.name} src={`/api/public/games/play/${game.file}`}
+          sandbox="allow-scripts allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-downloads allow-presentation"
+          allow="fullscreen; autoplay; gamepad; keyboard-map; clipboard-write" allowFullScreen className="h-full w-full border-0" />
       </div>
     </div>
   );
@@ -170,6 +179,7 @@ function Sites() {
           {SERVERS.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
         </select>
         <div className="ml-auto flex gap-2">
+          <HostParty game={game} wrap={wrap} frame={frame} />
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
           <button onClick={() => wrap.current?.requestFullscreen?.()} className="rounded-md border p-1.5" aria-label="Fullscreen"><Maximize className="size-4" /></button>
         </div>
