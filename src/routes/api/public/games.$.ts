@@ -79,8 +79,8 @@ export const Route = createFileRoute("/api/public/games/$")({
           if (!upstream.ok && upstream.status !== 206) return new Response("Not found", { status: upstream.status === 404 ? 404 : 502, headers: { "access-control-allow-origin": "*" } });
           const ext = (rest[rest.length - 1]!.split(".").pop() ?? "").toLowerCase();
           const headers = new Headers({ "content-type": MIME[ext] ?? upstream.headers.get("content-type") ?? "application/octet-stream", "cache-control": "public, max-age=86400", "access-control-allow-origin": "*" });
-          for (const h of ["content-encoding", "content-range", "accept-ranges"]) { const v = upstream.headers.get(h); if (v) headers.set(h, v); }
-          if (TEXT_EXT.has(ext) && !upstream.headers.get("content-encoding")) {
+          for (const h of ["content-range", "accept-ranges"]) { const v = upstream.headers.get(h); if (v) headers.set(h, v); }
+          if (TEXT_EXT.has(ext)) {
             const body = rewrite(await upstream.text(), origin);
             return new Response(ext === "html" || ext === "htm" ? injectShim(body) : body, { status: upstream.status, headers });
           }
