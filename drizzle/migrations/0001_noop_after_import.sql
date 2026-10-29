@@ -1,0 +1,1 @@
+comment on table public.playlists is 'User music playlists';
