@@ -144,6 +144,7 @@ const keyCode = (k: string) => KC[k] ?? (k.length === 1 ? k.toUpperCase().charCo
 export function GuestScreen() {
   const room = useRoom("games");
   const video = useRef<HTMLVideoElement>(null);
+  const audio = useRef<HTMLAudioElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const [live, setLive] = useState(false);
   const chan = useRef<RTCDataChannel | null>(null);
@@ -164,7 +165,12 @@ export function GuestScreen() {
         pc.ontrack = (e) => {
           // Play frames as soon as they arrive instead of buffering.
           const rc = e.receiver as RTCRtpReceiver & { playoutDelayHint?: number; jitterBufferTarget?: number };
-          try { rc.playoutDelayHint = 0; rc.jitterBufferTarget = 0; } catch { /* unsupported */ } if (video.current) { video.current.srcObject = e.streams[0] ?? null; setLive(true); } };
+          try { rc.playoutDelayHint = 0; rc.jitterBufferTarget = 0; } catch { /* unsupported */ }
+          // Video and sound play in separate elements so video never waits on audio.
+          const el = e.track.kind === "video" ? video.current : audio.current;
+          if (el) { el.srcObject = new MediaStream([e.track]); void el.play().catch(() => {}); }
+          if (e.track.kind === "video") setLive(true);
+        };
         pc.onicecandidate = (e) => e.candidate && sendRoomMsg("games", "rtc", { type: "ice", ice: e.candidate.toJSON() } satisfies Rtc, m.from);
         void pc.setRemoteDescription(d.sdp).then(async () => { const a = await pc!.createAnswer(); await pc!.setLocalDescription(a); sendRoomMsg("games", "rtc", { type: "answer", sdp: a } satisfies Rtc, m.from); }).catch(() => {});
       }
