@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { searchUrl, usePrefs, type Prefs } from "@/lib/astra/prefs";
 import { openProxied } from "@/lib/astra/proxy";
-import { ExternalLink, Globe, Plus, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, Globe, Home, Lock, Plus, RotateCw, Search, X } from "lucide-react";
 import { webSearch } from "@/lib/astra/web.functions";
 import { MobileMenuButton } from "@/components/astra/AppShell";
 import { cn } from "@/lib/utils";
@@ -15,9 +15,10 @@ export const Route = createFileRoute("/_authenticated/web")({
 });
 
 type Result = { title: string; url: string; snippet: string };
-type Tab = { id: number; title: string; query: string; results: Result[] | null; url: string | null; loading: boolean };
+type Snap = { title: string; query: string; results: Result[] | null; url: string | null };
+type Tab = Snap & { id: number; loading: boolean; back: Snap[]; fwd: Snap[]; nonce: number };
 let nextId = 1;
-const blank = (): Tab => ({ id: nextId++, title: "New tab", query: "", results: null, url: null, loading: false });
+const blank = (): Tab => ({ id: nextId++, title: "New tab", query: "", results: null, url: null, loading: false, back: [], fwd: [], nonce: 0 });
 
 function Web() {
   const search = useServerFn(webSearch);
@@ -27,7 +28,22 @@ function Web() {
   const [active, setActive] = useState(tabs[0]!.id);
   const [input, setInput] = useState(initialQ ?? "");
   const tab = tabs.find((t) => t.id === active) ?? tabs[0]!;
-  const patch = (id: number, p: Partial<Tab>) => setTabs((ts) => ts.map((t) => (t.id === id ? { ...t, ...p } : t)));
+  const patch = (id: number, p: Partial<Tab>) => setTabs((ts) => ts.map((t) => {
+    if (t.id !== id) return t;
+    const nav = ("url" in p || "results" in p) && !("back" in p) && (t.url || t.results);
+    const snap: Snap = { title: t.title, query: t.query, results: t.results, url: t.url };
+    return nav ? { ...t, ...p, back: [...t.back, snap], fwd: [] } : { ...t, ...p };
+  }));
+  const step = (dir: "back" | "fwd") => {
+    const from = dir === "back" ? tab.back : tab.fwd;
+    const target = from[from.length - 1];
+    if (!target) return;
+    const cur: Snap = { title: tab.title, query: tab.query, results: tab.results, url: tab.url };
+    const rest = from.slice(0, -1);
+    patch(tab.id, dir === "back" ? { ...target, back: rest, fwd: [...tab.fwd, cur] } : { ...target, fwd: rest, back: [...tab.back, cur] });
+    setInput(target.url ?? target.query);
+  };
+  const navBtn = "rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent";
 
   useEffect(() => {
     if (initialQ) void go(undefined, initialQ);
@@ -71,27 +87,33 @@ function Web() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 overflow-x-auto border-b px-2 pt-2">
+      <div className="flex items-end gap-1 overflow-x-auto bg-muted px-2 pt-2">
         <MobileMenuButton />
         {tabs.map((t) => (
-          <div key={t.id} className={cn("group flex max-w-48 shrink-0 items-center gap-1.5 rounded-t-md border border-b-0 px-3 py-1.5 text-xs", t.id === tab.id ? "bg-card" : "text-muted-foreground")}>
-            <button className="flex min-w-0 items-center gap-1.5" onClick={() => { setActive(t.id); setInput(t.query); }}>
-              <Globe className="size-3 shrink-0" /><span className="truncate">{t.title}</span>
+          <div key={t.id} className={cn("group flex w-52 shrink-0 items-center gap-2 rounded-t-lg px-3 py-2 text-xs transition-colors", t.id === tab.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:bg-card/60")}>
+            <button className="flex min-w-0 flex-1 items-center gap-2" onClick={() => { setActive(t.id); setInput(t.url ?? t.query); }}>
+              <Globe className="size-3.5 shrink-0" /><span className="truncate">{t.title}</span>
             </button>
-            <button onClick={() => close(t.id)} aria-label="Close tab"><X className="size-3" /></button>
+            <button onClick={() => close(t.id)} className="rounded-full p-0.5 opacity-60 hover:bg-accent hover:opacity-100" aria-label="Close tab"><X className="size-3" /></button>
           </div>
         ))}
-        <button onClick={newTab} className="rounded p-1.5 text-muted-foreground hover:bg-accent" aria-label="New tab"><Plus className="size-4" /></button>
+        <button onClick={newTab} className="mb-1 rounded-full p-1.5 text-muted-foreground hover:bg-card" aria-label="New tab"><Plus className="size-4" /></button>
       </div>
-      <form onSubmit={go} className="flex items-center gap-2 border-b bg-card px-3 py-2">
-        <Search className="size-4 text-muted-foreground" />
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Search the web or type a website address"
-          className="flex-1 bg-transparent text-sm outline-none" />
-        {tab.url && <a href={tab.url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground" aria-label="Open in new window"><ExternalLink className="size-4" /></a>}
+      <form onSubmit={go} className="flex items-center gap-1 border-b bg-card px-2 py-1.5">
+        <button type="button" onClick={() => step("back")} disabled={!tab.back.length} className={navBtn} aria-label="Back"><ArrowLeft className="size-4" /></button>
+        <button type="button" onClick={() => step("fwd")} disabled={!tab.fwd.length} className={navBtn} aria-label="Forward"><ArrowRight className="size-4" /></button>
+        <button type="button" onClick={() => tab.url ? patch(tab.id, { nonce: tab.nonce + 1 }) : tab.query && void go(undefined, tab.query)} className={navBtn} aria-label="Reload"><RotateCw className="size-4" /></button>
+        <button type="button" onClick={() => { patch(tab.id, { url: null, results: null, title: "New tab", query: "" }); setInput(""); }} className={navBtn} aria-label="Home"><Home className="size-4" /></button>
+        <div className="mx-1 flex flex-1 items-center gap-2 rounded-full bg-muted px-4 py-1.5 focus-within:bg-background focus-within:ring-2 focus-within:ring-ring">
+          {tab.url ? <Lock className="size-3.5 text-muted-foreground" /> : <Search className="size-3.5 text-muted-foreground" />}
+          <input value={input} onChange={(e) => setInput(e.target.value)} onFocus={(e) => e.target.select()} placeholder="Search or type a URL"
+            className="flex-1 bg-transparent text-sm outline-none" />
+        </div>
+        {tab.url && <a href={tab.url} target="_blank" rel="noreferrer" className={navBtn} aria-label="Open in new window"><ExternalLink className="size-4" /></a>}
       </form>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {tab.url ? (
-          <ProxiedFrame key={tab.url} url={tab.url} title={tab.title} prefs={prefs} onFail={() => {
+          <ProxiedFrame key={`${tab.url}#${tab.nonce}`} url={tab.url} title={tab.title} prefs={prefs} onFail={() => {
             if (!/^https?:\/\//i.test(tab.query) && !/^[\w-]+(\.[\w-]+)+/.test(tab.query)) {
               const id = tab.id, q = tab.query;
               patch(id, { url: null, loading: true });
