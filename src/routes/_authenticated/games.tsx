@@ -9,6 +9,8 @@ import { GuestScreen, HostParty } from "@/components/games/GameParty";
 import { MobileMenuButton } from "@/components/astra/AppShell";
 import { usePrefs } from "@/lib/astra/prefs";
 import { openProxied } from "@/lib/astra/proxy";
+import { supabase } from "@/integrations/supabase/client";
+import { Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/games")({
   head: () => ({ meta: [{ title: "Games — BirchBlock" }] }),
@@ -125,6 +127,46 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
     mods.forEach((m) => { try { frame.current?.contentWindow?.postMessage({ bbMod: 1, prop: m.prop, value: state[m.id] ? m.value : null }, "*"); } catch { /* frame gone */ } });
   };
   const toggle = (id: string, v: boolean) => setOn((s) => { const n = { ...s, [id]: v }; sendMods(n); return n; });
+  const [save, setSave] = useState<Record<string, string> | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiText, setAiText] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState("");
+  const saveRef = useRef<Record<string, string>>({});
+  const persist = async (data: Record<string, string>) => {
+    saveRef.current = data;
+    const { data: u } = await supabase.auth.getUser();
+    if (u.user) await supabase.from("game_saves").upsert({ user_id: u.user.id, game: game.file, data, updated_at: new Date().toISOString() });
+  };
+  useEffect(() => {
+    let live = true;
+    setSave(null);
+    supabase.from("game_saves").select("data").eq("game", game.file).maybeSingle().then(({ data }) => {
+      if (!live) return;
+      const d = (data?.data ?? {}) as Record<string, string>;
+      saveRef.current = d; setSave(d);
+    });
+    const onMsg = (e: MessageEvent) => {
+      if (e.source !== frame.current?.contentWindow || !e.data || e.data.bbSave !== 1) return;
+      const d = e.data.data;
+      if (d && typeof d === "object" && JSON.stringify(d).length < 2_000_000) void persist(d);
+    };
+    window.addEventListener("message", onMsg);
+    return () => { live = false; window.removeEventListener("message", onMsg); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.file]);
+  const runAi = async () => {
+    setAiBusy(true); setAiMsg("");
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const res = await fetch("/api/game-ai", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${s.session?.access_token ?? ""}` }, body: JSON.stringify({ game: game.name, prompt: aiText, save: saveRef.current }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) { setAiMsg(j.error ?? "Couldn't make that mod"); return; }
+      const next = { ...saveRef.current, ...j.changes };
+      await persist(next); setSave(next); setNonce((n) => n + 1);
+      setAiMsg("Mod applied! The game reloaded with it."); setAiText("");
+    } finally { setAiBusy(false); }
+  };
   const src = `/api/public/games/play/${game.file}${mods.length ? `?mods=${mods.map((m) => m.prop).join(",")}` : ""}`;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -144,6 +186,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          <button onClick={() => setAiOpen((v) => !v)} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="AI mod maker"><Sparkles className="size-4" /> AI mod</button>
           <HostParty game={game} wrap={wrap} frame={frame} />
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
           <button onClick={() => wrap.current?.requestFullscreen?.()} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="Fullscreen">
@@ -151,10 +194,17 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
           </button>
         </div>
       </div>
+      {aiOpen && (
+        <form onSubmit={(e) => { e.preventDefault(); if (aiText.trim() && !aiBusy) void runAi(); }} className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+          <input value={aiText} onChange={(e) => setAiText(e.target.value)} placeholder="Describe a mod, e.g. give me 1,000,000 coins" className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-sm" />
+          <button disabled={aiBusy || !aiText.trim()} className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50">{aiBusy ? "Making…" : "Make mod"}</button>
+          {aiMsg && <p className="w-full text-xs text-muted-foreground">{aiMsg}</p>}
+        </form>
+      )}
       <div ref={wrap} className="relative min-h-0 flex-1 overflow-hidden bg-background [contain:strict]">
-        <iframe ref={frame} key={nonce} title={game.name} src={src} onLoad={() => sendMods(on)}
+        {save === null ? <p className="p-4 text-sm text-muted-foreground">Loading your save…</p> : <iframe name={`bbsave:${JSON.stringify(save)}`} ref={frame} key={nonce} title={game.name} src={src} onLoad={() => sendMods(on)}
           sandbox="allow-scripts allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-downloads allow-presentation"
-          allow="fullscreen; autoplay; gamepad; keyboard-map; clipboard-write" allowFullScreen className="h-full w-full border-0" />
+          allow="fullscreen; autoplay; gamepad; keyboard-map; clipboard-write" allowFullScreen className="h-full w-full border-0" />}
       </div>
     </div>
   );
