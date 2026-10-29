@@ -64,7 +64,7 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
           tr?.setCodecPreferences?.([...caps].sort((a, b) => rank(a) - rank(b)));
         } catch { /* unsupported */ }
         const p = sender.getParameters();
-        p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: 10_000_000, maxFramerate: 60, scaleResolutionDownBy: 1, priority: "high", networkPriority: "high" } as RTCRtpEncodingParameters];
+        p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: 6_000_000, maxFramerate: 60, scaleResolutionDownBy: 1, priority: "high", networkPriority: "high" } as RTCRtpEncodingParameters];
         (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "balanced";
         void sender.setParameters(p).catch(() => {});
       }
@@ -75,17 +75,17 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
     pc.onicecandidate = (e) => e.candidate && sendRoomMsg("games", "rtc", { type: "ice", ice: e.candidate.toJSON() } satisfies Rtc, to);
     // Start sharp instead of slowly ramping up from a blurry low bitrate.
     const boost = (sdp = "") => sdp.replace(/(a=fmtp:\d+ [^\r\n]+)/g, "$1;x-google-start-bitrate=4000;x-google-min-bitrate=1500;x-google-max-bitrate=10000");
-    void pc.createOffer().then(async (o) => { const tuned = { type: o.type, sdp: boost(o.sdp) }; await pc.setLocalDescription(tuned); sendRoomMsg("games", "rtc", { type: "offer", sdp: tuned } satisfies Rtc, to); });
+    void pc.createOffer().then(async (o) => { const tuned = { type: o.type, sdp: boost(o.sdp) }; await pc.setLocalDescription(tuned); sendRoomMsg("games", "rtc", { type: "offer", sdp: tuned } satisfies Rtc, to); }).catch(() => {});
   }
 
   useEffect(() => {
     if (!host) return;
     return onRoomMsg("games", (m) => {
-      if (m.event === "want" && stream) call(m.from, stream);
+      if (m.event === "want" && stream) { const ex = peers.current.get(m.from); if (!ex || ["failed","closed","disconnected"].includes(ex.connectionState)) call(m.from, stream); }
       if (m.event === "rtc") {
         const d = m.data as Rtc, pc = peers.current.get(m.from);
         if (!pc) return;
-        if (d.type === "answer" && d.sdp) void pc.setRemoteDescription(d.sdp);
+        if (d.type === "answer" && d.sdp) void pc.setRemoteDescription(d.sdp).catch(() => {});
         if (d.type === "ice" && d.ice) void pc.addIceCandidate(d.ice).catch(() => {});
       }
       if (m.event === "input") forward(m.from, m.data as Input);
@@ -96,14 +96,14 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
   function forward(from: string, i: Input) {
     const g = (useRoomSnapshot() ?? room)?.state?.game;
     if (!canControl(g, from)) return;
-    frame.current?.contentWindow?.postMessage({ bbInput: 1, ...i }, "*");
+    try { frame.current?.contentWindow?.postMessage({ bbInput: 1, ...i }, "*"); } catch { /* frame gone */ }
   }
 
   useEffect(() => () => { peers.current.forEach((p) => p.close()); stream?.getTracks().forEach((t) => t.stop()); }, [stream]);
 
   async function share() {
     try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 60, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, cursor: "never" }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
+      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 60, max: 60 }, width: { ideal: 1280, max: 1600 }, height: { ideal: 720, max: 900 }, cursor: "never" }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
       const track = s.getVideoTracks()[0] as MediaStreamTrack & { cropTo?: (t: unknown) => Promise<void> };
       const CT = (window as unknown as { CropTarget?: { fromElement: (e: Element) => Promise<unknown> } }).CropTarget;
       if (CT && track?.cropTo && wrap.current) await track.cropTo(await CT.fromElement(wrap.current)).catch(() => {});
@@ -162,7 +162,7 @@ export function GuestScreen() {
           const rc = e.receiver as RTCRtpReceiver & { playoutDelayHint?: number; jitterBufferTarget?: number };
           try { rc.playoutDelayHint = 0; rc.jitterBufferTarget = 0; } catch { /* unsupported */ } if (video.current) { video.current.srcObject = e.streams[0] ?? null; setLive(true); } };
         pc.onicecandidate = (e) => e.candidate && sendRoomMsg("games", "rtc", { type: "ice", ice: e.candidate.toJSON() } satisfies Rtc, m.from);
-        void pc.setRemoteDescription(d.sdp).then(async () => { const a = await pc!.createAnswer(); await pc!.setLocalDescription(a); sendRoomMsg("games", "rtc", { type: "answer", sdp: a } satisfies Rtc, m.from); });
+        void pc.setRemoteDescription(d.sdp).then(async () => { const a = await pc!.createAnswer(); await pc!.setLocalDescription(a); sendRoomMsg("games", "rtc", { type: "answer", sdp: a } satisfies Rtc, m.from); }).catch(() => {});
       }
       if (d.type === "ice" && d.ice) void pc?.addIceCandidate(d.ice).catch(() => {});
     });
@@ -173,7 +173,7 @@ export function GuestScreen() {
   const send = (i: Input) => {
     if (!allowed || !hostId) return;
     const c = chan.current;
-    if (c?.readyState === "open") c.send(JSON.stringify(i));
+    if (c?.readyState === "open") { try { if (c.bufferedAmount < 64_000) c.send(JSON.stringify(i)); } catch { /* closed */ } }
     else if (i.type !== "mousemove" || i.bs) sendRoomMsg("games", "input", i, hostId);
   };
   const lastMove = useRef(0);
