@@ -10,15 +10,15 @@ import type { Prefs } from "@/lib/astra/prefs";
 export type Track = { id: string; title: string; artist: string; artistId: string; album: string; albumId: string; art: string; duration: number; preview?: string };
 
 export const SERVERS = [
-  { id: "youtube", name: "YouTube (full songs)" },
-  { id: "soundcloud", name: "SoundCloud" },
+  { id: "soundcloud", name: "SoundCloud (no ads)" },
+  { id: "youtube", name: "YouTube (may have ads)" },
   { id: "audius", name: "Audius" },
   { id: "deezer", name: "Deezer (preview)" },
 ] as const;
 export type Server = (typeof SERVERS)[number]["id"];
 
 type State = { queue: Track[]; cur: number; status: string; paused: boolean; time: number; dur: number; server: Server; mode: "audio" | "video" | null; volume: number };
-let state: State = { queue: [], cur: -1, status: "", paused: true, time: 0, dur: 0, server: "youtube", mode: null, volume: 1 };
+let state: State = { queue: [], cur: -1, status: "", paused: true, time: 0, dur: 0, server: "soundcloud", mode: null, volume: 1 };
 const subs = new Set<() => void>();
 const set = (p: Partial<State>) => { state = { ...state, ...p }; subs.forEach((f) => f()); };
 
@@ -64,10 +64,10 @@ function ensure() {
     Object.assign(frame.style, { position: "fixed", width: "1px", height: "1px", bottom: "0", right: "0", opacity: "0", pointerEvents: "none", border: "0" });
     document.body.appendChild(frame);
   }
-  try { const s = localStorage.getItem("bb-music-server"); if (s && SERVERS.some((x) => x.id === s)) state.server = s as Server; } catch { /* ignore */ }
+  try { const s = localStorage.getItem("bb-music-server2"); if (s && SERVERS.some((x) => x.id === s)) state.server = s as Server; } catch { /* ignore */ }
 }
 
-export function setServer(s: Server) { localStorage.setItem("bb-music-server", s); set({ server: s }); }
+export function setServer(s: Server) { localStorage.setItem("bb-music-server2", s); set({ server: s }); }
 export function setVolume(v: number) { ensure(); if (audio) audio.volume = v; set({ volume: v }); }
 
 let prefsRef: Prefs | null = null;
@@ -82,7 +82,9 @@ export async function playList(list: Track[], i: number) {
   audio.pause(); audio.removeAttribute("src");
   frame.src = "about:blank";
   await musicToken();
-  const order = [state.server, ...SERVERS.map((x) => x.id).filter((x) => x !== state.server)];
+  // Ad-free audio sources first; YouTube (ads) only as a last resort unless picked.
+  const rest = (["soundcloud", "audius", "youtube", "deezer"] as Server[]).filter((x) => x !== state.server);
+  const order = [state.server, ...rest];
   for (const sv of order) {
     if (my !== playId) return;
     try {

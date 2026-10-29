@@ -135,6 +135,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState("");
   const saveRef = useRef<Record<string, string>>({});
+  const ignoreSaves = useRef(0);
   const persist = async (data: Record<string, string>) => {
     saveRef.current = data;
     const { data: u } = await supabase.auth.getUser();
@@ -150,6 +151,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
     });
     const onMsg = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow || !e.data || e.data.bbSave !== 1) return;
+      if (Date.now() < ignoreSaves.current) return; // old frame flushing its pre-mod save
       const d = e.data.data;
       if (d && typeof d === "object" && JSON.stringify(d).length < 2_000_000) void persist(d);
     };
@@ -164,6 +166,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
       const res = await fetch("/api/game-ai", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${s.session?.access_token ?? ""}` }, body: JSON.stringify({ game: game.name, prompt: aiText, save: saveRef.current }) });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) { setAiMsg(j.error ?? "Couldn't make that mod"); return; }
+      ignoreSaves.current = Date.now() + 6000;
       const next = { ...saveRef.current, ...j.changes };
       await persist(next); setSave(next); setNonce((n) => n + 1);
       setAiMsg("Mod applied! The game reloaded with it."); setAiText("");
