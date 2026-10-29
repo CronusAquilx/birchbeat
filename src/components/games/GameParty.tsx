@@ -64,8 +64,8 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
           tr?.setCodecPreferences?.([...caps].sort((a, b) => rank(a) - rank(b)));
         } catch { /* unsupported */ }
         const p = sender.getParameters();
-        p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: 6_000_000, maxFramerate: 60, scaleResolutionDownBy: 1, priority: "high", networkPriority: "high" } as RTCRtpEncodingParameters];
-        (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "balanced";
+        p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: 6_000_000, maxFramerate: 30, scaleResolutionDownBy: 1, priority: "high", networkPriority: "high" } as RTCRtpEncodingParameters];
+        (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "maintain-resolution";
         void sender.setParameters(p).catch(() => {});
       }
     });
@@ -103,11 +103,11 @@ export function HostParty({ game, wrap, frame }: { game: { file: string; name: s
 
   async function share() {
     try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 60, max: 60 }, width: { ideal: 1280, max: 1600 }, height: { ideal: 720, max: 900 }, cursor: "never" }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
+      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30, max: 30 }, width: { ideal: 1280, max: 1600 }, height: { ideal: 720, max: 900 }, cursor: "never" }, audio: true, preferCurrentTab: true } as DisplayMediaStreamOptions);
       const track = s.getVideoTracks()[0] as MediaStreamTrack & { cropTo?: (t: unknown) => Promise<void> };
       const CT = (window as unknown as { CropTarget?: { fromElement: (e: Element) => Promise<unknown> } }).CropTarget;
       if (CT && track?.cropTo && wrap.current) await track.cropTo(await CT.fromElement(wrap.current)).catch(() => {});
-      if (track) track.contentHint = "motion";
+      if (track) track.contentHint = "detail";
       track?.addEventListener("ended", () => setStream(null));
       setStream(s);
       room?.members.filter((m) => m.id !== myRoomId()).forEach((m) => call(m.id, s));
@@ -203,7 +203,7 @@ export function GuestScreen() {
       </div>
       <div ref={box} tabIndex={0} onKeyDown={key("keydown")} onKeyUp={key("keyup")} onMouseDown={mouse("mousedown")} onMouseUp={mouse("mouseup")} onMouseMove={mouse("mousemove")} onMouseLeave={(e) => { if (e.buttons) mouse("mouseup")(e); }} onContextMenu={(e) => e.preventDefault()}
         className="relative flex-1 cursor-crosshair select-none bg-background outline-none">
-        <video ref={video} autoPlay muted playsInline className="h-full w-full object-contain" />
+        <video ref={video} autoPlay muted playsInline className="pointer-events-none absolute inset-0 h-full w-full object-contain" />
         {!live && <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">Waiting for the host to share their screen…</p>}
       </div>
     </div>
