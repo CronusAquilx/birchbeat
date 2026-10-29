@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
  * Auto mod menu: scans a game's save for numbers (JSON, key=value / ini lines,
  * base64-wrapped text) and lets the player set any of them. No AI call.
  */
-type Field = { key: string; path: string; label: string; value: number; b64: boolean };
+type Field = { key: string; path: string; label: string; value: number; b64: boolean; bool?: boolean };
 
 const decode = (raw: string) => {
   if (raw.length > 16 && /^[A-Za-z0-9+/=\s]+$/.test(raw)) {
@@ -24,6 +24,7 @@ export function detectFields(save: Record<string, string>): Field[] {
       const walk = (o: unknown, p: string[]) => {
         if (out.length > 300) return;
         if (typeof o === "number") out.push({ key, path: JSON.stringify(p), label: p.join(" › ") || key, value: o, b64 });
+        else if (typeof o === "boolean") out.push({ key, path: JSON.stringify(p), label: p.join(" › ") || key, value: o ? 1 : 0, b64, bool: true });
         else if (o && typeof o === "object") for (const [k, v] of Object.entries(o)) walk(v, [...p, k]);
       };
       walk(json, []);
@@ -46,7 +47,7 @@ function applyField(save: Record<string, string>, f: Field, v: number): string {
   } else {
     const o = JSON.parse(text); const p = JSON.parse(f.path) as string[];
     let cur = o; for (const k of p.slice(0, -1)) cur = cur[k];
-    cur[p[p.length - 1]!] = v; next = JSON.stringify(o);
+    cur[p[p.length - 1]!] = f.bool ? v !== 0 : v; next = JSON.stringify(o);
   }
   return f.b64 ? btoa(next) : next;
 }
