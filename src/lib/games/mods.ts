@@ -21,3 +21,16 @@ const MODS: Record<string, GameMod[]> = {
 };
 
 export const modsFor = (name: string): GameMod[] => MODS[name] ?? [];
+
+/** Ready-made AI mod prompts (tap to fill the AI mod box; nothing runs until "Make mod"). */
+const PRESETS: Record<string, string[]> = {
+  "Retro Bowl": [
+    "Max out every player's stats and ratings on my team",
+    "Make every player on my team max speed",
+    "Make every player max strength, throwing and catching",
+    "Make every player young and fully healthy with no injuries",
+    "Give me max coaching credits and salary cap",
+    "Max out every star rating to 5 stars",
+  ],
+};
+export const presetsFor = (name: string): string[] => PRESETS[name] ?? [];
