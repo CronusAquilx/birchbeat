@@ -142,6 +142,7 @@ function SettingsPage() {
             </Card>
             <Card title="Effects">
               <Row title="Glowing home title"><Switch checked={p.glowTitle} onCheckedChange={(glowTitle) => set({ glowTitle })} /></Row>
+              <Row title="Performance mode" desc="Turns off blur, shadows, animations and fancy backgrounds so the app and games run faster on slow computers."><Switch checked={p.perfMode} onCheckedChange={(perfMode) => set({ perfMode })} /></Row>
               <Row title="Reduce motion" desc="Turns off animations everywhere."><Switch checked={p.reduceMotion} onCheckedChange={(reduceMotion) => set({ reduceMotion })} /></Row>
             </Card>
           </>

@@ -14,6 +14,7 @@ export type Prefs = {
   radius: number;
   background: "plain" | "dots" | "grid" | "glow";
   reduceMotion: boolean;
+  perfMode: boolean;
   glowTitle: boolean;
   tagline: string;
   homeName: string;
@@ -45,6 +46,7 @@ export const DEFAULT_PREFS: Prefs = {
   radius: 0.3,
   background: "dots",
   reduceMotion: false,
+  perfMode: false,
   glowTitle: true,
   tagline: "everything in one place",
   homeName: "birchblock",
@@ -133,6 +135,7 @@ function apply() {
   if (state.customBg) { r.style.setProperty("--custom-bg", `url("${state.customBg.replace(/"/g, "%22")}")`); r.style.setProperty("--custom-bg-dim", `${state.customBgDim}%`); r.dataset["custombg"] = "on"; }
   else { r.style.removeProperty("--custom-bg"); delete r.dataset["custombg"]; }
   if (state.device) r.dataset["device"] = state.device; else delete r.dataset["device"];
+  r.classList.toggle("perf-lite", !!state.perfMode);
   r.classList.toggle("reduce-motion", state.reduceMotion || state.device === "phone");
   document.title = state.tabCloak ? state.cloakTitle : document.title;
 }

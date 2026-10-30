@@ -44,5 +44,30 @@ const PRESETS: Record<string, string[]> = {
     "Give me max coaching credits and salary cap",
     "Max out every star rating to 5 stars",
   ],
+  "Basketball Stars": [
+    "Unlock every character, ball and outfit",
+    "Give me max cash and gold",
+    "Max out all my player upgrades",
+    "Set my level and rank to the max",
+  ],
+  "Granny": [
+    "Unlock every weapon and item",
+    "Unlock every difficulty and mode",
+    "Mark every escape and ending as done",
+  ],
 };
-export const presetsFor = (name: string): string[] => PRESETS[name] ?? [];
+/** Cheat menus by game type, matched by name keywords when a game has no exact entry. */
+const GENRES: [RegExp, string[]][] = [
+  [/basket|soccer|football|bowl|golf|hockey|baseball|tennis|sport|ball/i, ["Unlock every player, team and item", "Max out all my player stats", "Give me max coins and cash"]],
+  [/granny|horror|scary|fnaf|freddy|baldi|slender/i, ["Unlock every weapon, item and tool", "Unlock every night, level and mode", "Mark every ending as done"]],
+  [/shoot|gun|war|1v1|sniper|zombie|bow|strike|combat|fight/i, ["Unlock every weapon and skin", "Give me max coins, gems and ammo", "Set my level to the max"]],
+  [/race|car|drift|moto|drive|bike|truck/i, ["Unlock every car and track", "Give me max money", "Max out all car upgrades"]],
+  [/run|jump|dash|geometry|subway|temple|level|world/i, ["Unlock every level and world", "Unlock every character and skin", "Give me max coins"]],
+  [/tycoon|idle|clicker|cookie|farm|simulator/i, ["Give me max money and gems", "Max out every upgrade", "Unlock everything"]],
+];
+const GENERIC = ["Unlock everything", "Give me max coins and currency", "Set my level to the max"];
+export const presetsFor = (name: string): string[] => {
+  const exact = Object.entries(PRESETS).find(([k]) => name.toLowerCase().includes(k.toLowerCase()));
+  if (exact) return exact[1];
+  return GENRES.find(([r]) => r.test(name))?.[1] ?? GENERIC;
+};
