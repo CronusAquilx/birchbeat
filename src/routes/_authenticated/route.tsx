@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Navigate, Outlet, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { AstraMark } from "@/components/astra/Mark";
 import { AppShell } from "@/components/astra/AppShell";
@@ -10,6 +10,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthedLayout() {
   const { session, loading } = useAuth();
+  const { pathname } = useLocation();
   if (loading)
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -17,6 +18,8 @@ function AuthedLayout() {
       </div>
     );
   if (!session) return <Navigate to="/auth" replace />;
+  // The full-tab game player shows only the game (no sidebar or welcome prompts).
+  if (pathname === "/play") return <Outlet />;
   return (
     <AppShell>
       <Outlet />
