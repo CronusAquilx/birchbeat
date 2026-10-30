@@ -204,6 +204,12 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
   const wrap = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [nonce, setNonce] = useState(0);
+  useEffect(() => {
+    recordPlay(game.name);
+    let acc = 0;
+    const id = setInterval(() => { if (!document.hidden) acc += 15; if (acc >= 60) { addSeconds(game.name, acc); acc = 0; } }, 15000);
+    return () => { clearInterval(id); if (acc) addSeconds(game.name, acc); };
+  }, [game.name]);
   const mods = useMemo(() => modsFor(game.name), [game.name]);
   const [on, setOn] = useState<Record<string, boolean>>({});
   const sendMods = (state: Record<string, boolean>) => {
@@ -257,6 +263,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
       if (!res.ok) { setAiMsg(j.error ?? "Couldn't make that mod"); return; }
       ignoreSaves.current = Date.now() + 6000;
       const next = { ...saveRef.current, ...j.changes };
+      recordMod();
       await persist(next); setSave(next); setNonce((n) => n + 1);
       setAiMsg("Mod applied! The game reloaded with it."); setAiText("");
     } finally { setAiBusy(false); }
@@ -290,7 +297,7 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
           </select>
           <button onClick={() => setAutoOpen((v) => (v ? null : { ...saveRef.current }))} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="Auto mod menu"><SlidersHorizontal className="size-4" /> Auto mods</button>
           <button onClick={() => setAiOpen((v) => !v)} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="AI mod maker"><Sparkles className="size-4" /> AI mod</button>
-          <HostParty game={game} wrap={wrap} frame={frame} />
+          <span className="contents" onClickCapture={() => recordParty()}><HostParty game={game} wrap={wrap} frame={frame} /></span>
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
           <button onClick={() => wrap.current?.requestFullscreen?.()} className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-sm" aria-label="Fullscreen">
             <Maximize className="size-4" /> Fullscreen
