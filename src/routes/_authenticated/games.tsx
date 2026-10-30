@@ -1,3 +1,4 @@
+import { AAA_GAMES } from "@/lib/games/aaa";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Gamepad2, Globe, Maximize, RotateCw, Search, Wand2 } from "lucide-react";
@@ -34,7 +35,7 @@ const SERVERS = [
 
 /** Cloud gaming services: big games (GTA V, Call of Duty, Fortnite) stream from their servers. */
 const CLOUD = [
-  { name: "Wix3 Browser (AAA games)", url: "https://browser.wix3.com/" },
+  ...AAA_GAMES,
   { name: "Xbox Cloud (GTA V, COD)", url: "https://www.xbox.com/play" },
   { name: "GeForce NOW", url: "https://play.geforcenow.com/" },
   { name: "now.gg", url: "https://now.gg/" },
@@ -83,7 +84,7 @@ function Games() {
             </button>
           </div>
         </div>
-      ) : mode === "games" ? <Library /> : mode === "cloud" ? <Sites key="cloud" list={CLOUD} storeKey="astra-cloud-server" note="Big games like GTA V and Call of Duty stream from these services. Xbox Cloud needs an Xbox Game Pass Ultimate account, GeForce NOW needs games you own on Steam/Epic. now.gg and EasyFun are free." /> : <Sites key="sites" list={SERVERS} storeKey="astra-game-server" />}
+      ) : mode === "games" ? <Library /> : mode === "cloud" ? <Sites key="cloud" list={CLOUD} storeKey="astra-cloud-server" note="AAA browser games from browser.wix3.com, plus cloud services. Big games like GTA V and Call of Duty stream from these services. Xbox Cloud needs an Xbox Game Pass Ultimate account, GeForce NOW needs games you own on Steam/Epic. now.gg and EasyFun are free." /> : <Sites key="sites" list={SERVERS} storeKey="astra-game-server" />}
     </div>
   );
 }
