@@ -337,10 +337,10 @@ function Sites({ list, storeKey, note }: { list: readonly { name: string; url: s
   const prefs = usePrefs();
   const ref = useRef<HTMLIFrameElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
-  const [server, setServer] = useState<string>(list[0].name);
+  const [server, setServer] = useState<string>(list[0]!.name);
   const [nonce, setNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const current = list.find((s) => s.name === server) ?? list[0];
+  const current = list.find((s) => s.name === server) ?? list[0]!;
 
   useEffect(() => {
     const s = localStorage.getItem(storeKey);
