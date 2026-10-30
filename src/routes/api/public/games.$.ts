@@ -20,7 +20,7 @@ const MIME: Record<string, string> = { html: "text/html; charset=utf-8", htm: "t
 
 // Games run in a sandboxed (opaque-origin) frame, where touching localStorage
 // throws. This shim gives them an in-memory store so they still boot.
-const SHIM = `<script>(function(){
+const SHIM = `<script>(function(){try{var UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",N=navigator,D=function(k,v){try{Object.defineProperty(N,k,{get:function(){return v},configurable:true})}catch(e){}};D("userAgent",UA);D("appVersion",UA.slice(8));D("vendor","Google Inc.");D("userAgentData",{brands:[{brand:"Google Chrome",version:"130"},{brand:"Chromium",version:"130"}],mobile:false,platform:"Windows",getHighEntropyValues:function(){return Promise.resolve({platform:"Windows",uaFullVersion:"130.0.0.0"})}});if(!window.chrome)window.chrome={runtime:{},app:{}};}catch(e){}})();(function(){
 var H=${JSON.stringify(CDN_HOSTS)},P=new URL("/api/public/games/cdn/",location.href).href;
 function rw(u){if(typeof u!=="string")return u;var m=/^(?:https?:)?\\/\\/([^\\/]+)\\//.exec(u);return m&&H.indexOf(m[1])>=0?P+u.replace(/^(?:https?:)?\\/\\//,""):u}
 var of=window.fetch;if(of)window.fetch=function(i,o){try{if(typeof i==="string")i=rw(i);else if(i&&i.url&&rw(i.url)!==i.url)i=new Request(rw(i.url),i)}catch(e){}return of.call(this,i,o)};
