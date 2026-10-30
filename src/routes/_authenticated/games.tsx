@@ -42,6 +42,24 @@ const CLOUD = [
   { name: "EasyFun", url: "https://www.easyfun.gg/" },
   { name: "Boosteroid", url: "https://cloud.boosteroid.com/" },
   { name: "Amazon Luna", url: "https://luna.amazon.com/" },
+  { name: "Krunker", url: "https://krunker.io/" },
+  { name: "Shell Shockers", url: "https://shellshock.io/" },
+  { name: "Venge.io", url: "https://venge.io/" },
+  { name: "Smash Karts", url: "https://smashkarts.io/" },
+  { name: "Bloxd.io", url: "https://bloxd.io/" },
+  { name: "Minecraft Classic", url: "https://classic.minecraft.net/" },
+  { name: "Eaglercraft", url: "https://eaglercraft.com/" },
+  { name: "Slither.io", url: "https://slither.io/" },
+  { name: "Agar.io", url: "https://agar.io/" },
+  { name: "Diep.io", url: "https://diep.io/" },
+  { name: "Zombs Royale", url: "https://zombsroyale.io/" },
+  { name: "Ev.io", url: "https://ev.io/" },
+  { name: "Kirka.io", url: "https://kirka.io/" },
+  { name: "1v1.LOL", url: "https://1v1.lol/" },
+  { name: "Doom (js-dos)", url: "https://dos.zone/doom-dec-1993/" },
+  { name: "Quake (WebQuake)", url: "https://www.netquake.io/" },
+  { name: "Polytrack", url: "https://www.kodub.com/apps/polytrack" },
+  { name: "Drift Hunters", url: "https://drift-hunters.co/" },
 ] as const;
 
 type Mode = "games" | "sites" | "cloud";
@@ -84,7 +102,7 @@ function Games() {
             </button>
           </div>
         </div>
-      ) : mode === "games" ? <Library /> : mode === "cloud" ? <Sites key="cloud" list={CLOUD} storeKey="astra-cloud-server" note="AAA browser games from browser.wix3.com, plus cloud services. Big games like GTA V and Call of Duty stream from these services. Xbox Cloud needs an Xbox Game Pass Ultimate account, GeForce NOW needs games you own on Steam/Epic. now.gg and EasyFun are free." /> : <Sites key="sites" list={SERVERS} storeKey="astra-game-server" />}
+      ) : mode === "games" ? <Library /> : mode === "cloud" ? <CloudGrid key="cloud" list={CLOUD} note="AAA browser games from browser.wix3.com, plus cloud services. Big games like GTA V and Call of Duty stream from these services. Xbox Cloud needs an Xbox Game Pass Ultimate account, GeForce NOW needs games you own on Steam/Epic. now.gg and EasyFun are free." /> : <Sites key="sites" list={SERVERS} storeKey="astra-game-server" />}
     </div>
   );
 }
@@ -335,18 +353,70 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
   );
 }
 
-function Sites({ list, storeKey, note }: { list: readonly { name: string; url: string }[]; storeKey: string; note?: string }) {
+/** Make embedded pages see Chrome (not Edge/Firefox) so "Chrome only" games run. */
+function spoofChrome(w: Window | null, depth = 0) {
+  if (!w || depth > 3) return;
+  try {
+    const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+    const nav = w.navigator as Navigator & Record<string, unknown>;
+    const def = (k: string, v: unknown) => { try { Object.defineProperty(nav, k, { get: () => v, configurable: true }); } catch { /* ignore */ } };
+    def("userAgent", ua);
+    def("appVersion", ua.slice(8));
+    def("vendor", "Google Inc.");
+    def("userAgentData", { brands: [{ brand: "Google Chrome", version: "130" }, { brand: "Chromium", version: "130" }, { brand: "Not?A_Brand", version: "99" }], mobile: false, platform: "Windows", getHighEntropyValues: async () => ({ platform: "Windows", platformVersion: "15.0.0", architecture: "x86", model: "", uaFullVersion: "130.0.0.0", fullVersionList: [{ brand: "Google Chrome", version: "130.0.0.0" }] }) });
+    const ww = w as Window & { chrome?: unknown };
+    if (!ww.chrome) ww.chrome = { runtime: {}, app: {}, csi: () => ({}), loadTimes: () => ({}) };
+    for (let i = 0; i < w.frames.length; i++) spoofChrome(w.frames[i] as Window, depth + 1);
+  } catch { /* cross-origin frame */ }
+}
+
+function tileHue(name: string) { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+
+function CloudGrid({ list, note }: { list: readonly { name: string; url: string }[]; note?: string }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  if (open) return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <button onClick={() => setOpen(null)} className="self-start px-3 pt-2 text-sm text-muted-foreground hover:text-foreground">← All cloud games</button>
+      <Sites list={list} storeKey="astra-cloud-server" initial={open} />
+    </div>
+  );
+  const shown = list.filter((g) => g.name.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      {note && <p className="mb-3 text-xs text-muted-foreground">{note}</p>}
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${list.length} games…`} className="mb-4 w-full max-w-sm rounded-md border bg-background px-3 py-1.5 text-sm" />
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
+        {shown.map((g) => {
+          const h = tileHue(g.name);
+          let host = ""; try { host = new URL(g.url).hostname; } catch { /* ignore */ }
+          return (
+            <button key={g.name} onClick={() => setOpen(g.name)} className="group overflow-hidden rounded-lg border bg-card text-left transition hover:-translate-y-0.5 hover:border-primary">
+              <div className="relative grid aspect-square place-items-center" style={{ background: `linear-gradient(135deg, oklch(0.55 0.17 ${h}), oklch(0.3 0.12 ${(h + 50) % 360}))` }}>
+                <span className="text-5xl font-black text-primary-foreground/90 drop-shadow">{g.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase()}</span>
+                {host && <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=128`} alt="" loading="lazy" className="absolute bottom-2 right-2 size-8 rounded" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
+              </div>
+              <p className="truncate px-2 py-2 text-sm font-medium">{g.name}</p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Sites({ list, storeKey, note, initial }: { list: readonly { name: string; url: string }[]; storeKey: string; note?: string; initial?: string }) {
   const prefs = usePrefs();
   const ref = useRef<HTMLIFrameElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
-  const [server, setServer] = useState<string>(list[0]!.name);
+  const [server, setServer] = useState<string>(initial ?? list[0]!.name);
   const [nonce, setNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const current = list.find((s) => s.name === server) ?? list[0]!;
 
   useEffect(() => {
     const s = localStorage.getItem(storeKey);
-    if (s) setServer(s);
+    if (s && !initial) setServer(s);
   }, []);
 
   useEffect(() => {
@@ -357,14 +427,17 @@ function Sites({ list, storeKey, note }: { list: readonly { name: string; url: s
     // Keep pop-ups ("open in new tab") inside this frame: a new tab has no proxy
     // attached and shows 404.
     const keepInside = () => {
+      spoofChrome(iframe.contentWindow);
       try {
         const w = iframe.contentWindow as (Window & { open: typeof window.open }) | null;
         if (w) w.open = ((u?: string | URL) => { if (u) w.location.href = String(u); return null; }) as typeof window.open;
       } catch { /* cross-origin, ignore */ }
     };
     iframe.addEventListener("load", keepInside);
+    const spoofTimer = setInterval(() => spoofChrome(iframe.contentWindow), 300);
+    setTimeout(() => clearInterval(spoofTimer), 15000);
     openProxied(iframe, current.url, prefs).catch((e) => setError(e instanceof Error ? e.message : String(e)));
-    return () => iframe.removeEventListener("load", keepInside);
+    return () => { clearInterval(spoofTimer); iframe.removeEventListener("load", keepInside); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current.name, nonce, prefs.transport, prefs.wisp]);
 
