@@ -6,7 +6,7 @@ import { openProxied } from "@/lib/astra/proxy";
 // Full-tab game player: opens a game through the Astra proxy in its own browser tab.
 export const Route = createFileRoute("/_authenticated/play")({
   ssr: false,
-  validateSearch: (s: Record<string, unknown>) => ({ url: typeof s.url === "string" ? s.url : "", name: typeof s.name === "string" ? s.name : "" }),
+  validateSearch: (s: Record<string, unknown>) => ({ url: typeof s["url"] === "string" ? s["url"] : "", name: typeof s["name"] === "string" ? s["name"] : "" }),
   head: () => ({ meta: [{ title: "Playing — Astra" }, { name: "description", content: "Play a browser game in its own tab through Astra." }, { property: "og:title", content: "Playing — Astra" }, { property: "og:description", content: "Play a browser game in its own tab through Astra." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: Play,
 });
