@@ -476,6 +476,7 @@ function Sites({ list, storeKey, note, initial }: { list: readonly { name: strin
           {list.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
         </select>
         <div className="ml-auto flex gap-2">
+          <a href={current.url} target="_blank" rel="noopener" className="rounded-md border p-1.5" aria-label="Open in new tab" title="Open in new tab"><ExternalLink className="size-4" /></a>
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
           <button onClick={() => wrap.current?.requestFullscreen?.()} className="rounded-md border p-1.5" aria-label="Fullscreen"><Maximize className="size-4" /></button>
         </div>
