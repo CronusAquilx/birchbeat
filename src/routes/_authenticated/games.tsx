@@ -13,7 +13,7 @@ import { openProxied } from "@/lib/astra/proxy";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, SlidersHorizontal } from "lucide-react";
 import { AutoMods } from "@/components/games/AutoMods";
-import { Heart, Trophy } from "lucide-react";
+import { ExternalLink, Heart, Trophy } from "lucide-react";
 import { useGameStats, toggleFavorite, recordPlay, addSeconds, recordMod, recordParty, achievements, totals } from "@/lib/games/stats";
 
 export const Route = createFileRoute("/_authenticated/games")({
