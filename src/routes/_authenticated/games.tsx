@@ -12,6 +12,8 @@ import { openProxied } from "@/lib/astra/proxy";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, SlidersHorizontal } from "lucide-react";
 import { AutoMods } from "@/components/games/AutoMods";
+import { Heart, Trophy } from "lucide-react";
+import { useGameStats, toggleFavorite, recordPlay, addSeconds, recordMod, recordParty, achievements, totals } from "@/lib/games/stats";
 
 export const Route = createFileRoute("/_authenticated/games")({
   head: () => ({ meta: [{ title: "Games — BirchBlock" }] }),
@@ -74,11 +76,16 @@ function Games() {
   );
 }
 
+type Tab = "all" | "favorites" | "recent" | "profile";
+
 function Library() {
   const [games, setGames] = useState<Game[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [tab, setTab] = useState<Tab>("all");
+  const [limit, setLimit] = useState(120);
   const [playing, setPlaying] = useState<Game | null>(null);
+  const stats = useGameStats();
 
   useEffect(() => {
     fetch("/api/public/games/list")
@@ -89,31 +96,106 @@ function Library() {
 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return (games ?? []).filter((g) => !s || g.name.toLowerCase().includes(s));
-  }, [games, q]);
+    const fav = new Set(stats.favorites);
+    let list = (games ?? []).filter((g) => !s || g.name.toLowerCase().includes(s));
+    if (tab === "favorites") list = list.filter((g) => fav.has(g.name));
+    if (tab === "recent") list = list.filter((g) => stats.last[g.name]).sort((a, b) => (stats.last[b.name] ?? 0) - (stats.last[a.name] ?? 0));
+    else list = [...list].sort((a, b) => Number(fav.has(b.name)) - Number(fav.has(a.name)));
+    return list;
+  }, [games, q, tab, stats]);
 
   const room = useRoom("games");
   if (room && !room.host && room.state?.game) return <GuestScreen />;
   if (playing) return <Player game={playing} onBack={() => setPlaying(null)} />;
 
+  const tabs: [Tab, string][] = [["all", "All"], ["favorites", `Favorites${stats.favorites.length ? ` (${stats.favorites.length})` : ""}`], ["recent", "Recent"], ["profile", "Profile"]];
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b px-3 py-2">
-        <Search className="size-4 text-muted-foreground" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={games ? `Search ${games.length} games` : "Loading games…"}
-          className="flex-1 bg-transparent text-sm outline-none" />
+      <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+        <div className="flex rounded-md border p-0.5 text-xs">
+          {tabs.map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)} className={`rounded px-2 py-1 transition-colors ${tab === id ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}>{label}</button>
+          ))}
+        </div>
+        {tab !== "profile" && (
+          <div className="flex min-w-40 flex-1 items-center gap-2 rounded-md border px-2 py-1">
+            <Search className="size-4 text-muted-foreground" />
+            <input value={q} onChange={(e) => { setQ(e.target.value); setLimit(120); }} placeholder={games ? `Search ${games.length} games` : "Loading games…"}
+              className="flex-1 bg-transparent text-sm outline-none" />
+          </div>
+        )}
         <RoomButton kind="games" />
       </div>
       {room && !room.host && <p className="border-b px-3 py-2 text-xs text-muted-foreground">Waiting for the host to start a game…</p>}
       {error && <p className="p-4 text-sm text-destructive">Couldn't load the game list ({error}). Try again later or use "Actual website".</p>}
-      <div className="grid flex-1 auto-rows-min grid-cols-2 gap-3 overflow-y-auto p-3 sm:grid-cols-4 lg:grid-cols-6">
-        {shown.slice(0, 300).map((g) => (
-          <button key={g.id} onClick={() => setPlaying(g)} className="group overflow-hidden rounded-lg border text-left hover:bg-accent">
-            <img src={`/api/public/games/cover/${g.cover}`} alt={g.name} loading="lazy" className="aspect-square w-full bg-muted object-cover" />
-            <p className="truncate px-2 py-1.5 text-sm">{g.name}</p>
-          </button>
+      {tab === "profile" ? <Profile games={games ?? []} onPlay={setPlaying} /> : (
+        <div className="flex-1 overflow-y-auto p-3" onScroll={(e) => { const t = e.currentTarget; if (t.scrollTop + t.clientHeight > t.scrollHeight - 600) setLimit((l) => l + 120); }}>
+          {shown.length === 0 && games && <p className="p-6 text-center text-sm text-muted-foreground">{tab === "favorites" ? "Tap the heart on a game to add it here." : tab === "recent" ? "Games you play show up here." : "No games match."}</p>}
+          <div className="grid auto-rows-min grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+            {shown.slice(0, limit).map((g) => {
+              const fav = stats.favorites.includes(g.name);
+              return (
+                <div key={g.id} className="group relative overflow-hidden rounded-xl border bg-card transition-transform hover:-translate-y-0.5 hover:shadow-lg [content-visibility:auto]">
+                  <button onClick={() => setPlaying(g)} className="block w-full text-left">
+                    <img src={`/api/public/games/cover/${g.cover}`} alt={g.name} loading="lazy" decoding="async" className="aspect-square w-full bg-muted object-cover" />
+                    <p className="truncate px-2 py-1.5 text-sm">{g.name}</p>
+                  </button>
+                  <button onClick={() => toggleFavorite(g.name)} aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+                    className={`absolute right-1.5 top-1.5 rounded-full bg-background/80 p-1.5 backdrop-blur transition-opacity ${fav ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"}`}>
+                    <Heart className={`size-4 ${fav ? "fill-primary text-primary" : ""}`} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmtTime(sec: number) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
+function Profile({ games, onPlay }: { games: Game[]; onPlay: (g: Game) => void }) {
+  const stats = useGameStats();
+  const t = totals(stats);
+  const ach = achievements(stats);
+  const byName = new Map(games.map((g) => [g.name, g]));
+  const top = Object.entries(stats.seconds).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  return (
+    <div className="flex-1 space-y-6 overflow-y-auto p-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[["Times played", t.plays], ["Games tried", t.games], ["Time played", fmtTime(t.seconds)], ["Mods made", stats.mods]].map(([k, v]) => (
+          <div key={String(k)} className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">{k}</p><p className="font-display text-2xl">{v}</p></div>
         ))}
       </div>
+      <section>
+        <h2 className="mb-2 font-medium">Most played</h2>
+        {top.length === 0 ? <p className="text-sm text-muted-foreground">Play a game to see it here.</p> : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {top.map(([name, sec]) => { const g = byName.get(name); return (
+              <button key={name} disabled={!g} onClick={() => g && onPlay(g)} className="overflow-hidden rounded-xl border bg-card text-left hover:bg-accent">
+                {g && <img src={`/api/public/games/cover/${g.cover}`} alt={name} loading="lazy" className="aspect-video w-full object-cover" />}
+                <p className="truncate px-2 pt-1.5 text-sm">{name}</p><p className="px-2 pb-1.5 text-xs text-muted-foreground">{fmtTime(sec)}</p>
+              </button>
+            ); })}
+          </div>
+        )}
+      </section>
+      <section>
+        <h2 className="mb-2 font-medium">Achievements · {ach.filter((a) => a.done).length}/{ach.length}</h2>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {ach.map((a) => (
+            <div key={a.id} className={`flex items-center gap-3 rounded-xl border p-3 ${a.done ? "bg-card" : "opacity-50"}`}>
+              <Trophy className={`size-6 shrink-0 ${a.done ? "text-primary" : "text-muted-foreground"}`} />
+              <div><p className="text-sm font-medium">{a.title}</p><p className="text-xs text-muted-foreground">{a.desc}</p></div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
