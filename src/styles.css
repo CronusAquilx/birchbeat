@@ -246,3 +246,6 @@ html[data-device="phone"] button, html[data-device="phone"] a, html[data-device=
 html[data-device="tablet"] button, html[data-device="tablet"] [role="button"] { min-height: 2.25rem; }
 html[data-device="phone"] img, html[data-device="tablet"] img { content-visibility: auto; }
 html[data-device="phone"][data-custombg="on"] main, html[data-device="tablet"][data-custombg="on"] main { background-attachment: scroll; }
+
+html.perf-lite *, html.perf-lite *::before, html.perf-lite *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; box-shadow: none !important; text-shadow: none !important; }
+html.perf-lite body { background-image: none !important; }
