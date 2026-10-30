@@ -372,12 +372,40 @@ function spoofChrome(w: Window | null, depth = 0) {
 
 function tileHue(name: string) { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
 
+// Big browser ports (Skate 3, Madden, GTA V, Counter-Strike…) need "cross-origin
+// isolation" and their own site address to boot, which no in-page proxy frame can
+// provide. They open in their own tab by default; "inside Astra" stays as a fallback.
+const AAA_NAMES = new Set(AAA_GAMES.map((g) => g.name));
+
 function CloudGrid({ list, note }: { list: readonly { name: string; url: string }[]; note?: string }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [inline, setInline] = useState(false);
   const [q, setQ] = useState("");
+  const game = open ? list.find((g) => g.name === open) : undefined;
+  if (open && game && AAA_NAMES.has(open) && !inline) {
+    const h = tileHue(game.name);
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <button onClick={() => setOpen(null)} className="self-start px-3 pt-2 text-sm text-muted-foreground hover:text-foreground">← All cloud games</button>
+        <div className="grid flex-1 place-items-center p-6">
+          <div className="w-full max-w-md overflow-hidden rounded-xl border bg-card">
+            <div className="grid aspect-video place-items-center" style={{ background: `linear-gradient(135deg, oklch(0.55 0.17 ${h}), oklch(0.3 0.12 ${(h + 50) % 360}))` }}>
+              <span className="text-6xl font-black text-primary-foreground/90 drop-shadow">{game.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase()}</span>
+            </div>
+            <div className="space-y-3 p-5">
+              <h2 className="text-lg font-semibold">{game.name}</h2>
+              <p className="text-sm text-muted-foreground">This is a full console/PC game running in the browser. It needs special browser features (cross-origin isolation) that only work when it has its own tab, so it opens in a new tab. Works in Edge and Chrome.</p>
+              <a href={game.url} target="_blank" rel="noopener" className="block rounded-md bg-primary px-4 py-2.5 text-center font-medium text-primary-foreground hover:opacity-90">Play in new tab</a>
+              <button onClick={() => setInline(true)} className="w-full rounded-md border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Try inside Astra anyway (may not load)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (open) return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <button onClick={() => setOpen(null)} className="self-start px-3 pt-2 text-sm text-muted-foreground hover:text-foreground">← All cloud games</button>
+      <button onClick={() => { setOpen(null); setInline(false); }} className="self-start px-3 pt-2 text-sm text-muted-foreground hover:text-foreground">← All cloud games</button>
       <Sites list={list} storeKey="astra-cloud-server" initial={open} />
     </div>
   );
