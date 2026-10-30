@@ -394,8 +394,8 @@ function CloudGrid({ list, note }: { list: readonly { name: string; url: string 
             </div>
             <div className="space-y-3 p-5">
               <h2 className="text-lg font-semibold">{game.name}</h2>
-              <p className="text-sm text-muted-foreground">This is a full console/PC game running in the browser. It needs special browser features (cross-origin isolation) that only work when it has its own tab, so it opens in a new tab. Works in Edge and Chrome.</p>
-              <a href={game.url} target="_blank" rel="noopener" className="block rounded-md bg-primary px-4 py-2.5 text-center font-medium text-primary-foreground hover:opacity-90">Play in new tab</a>
+              <p className="text-sm text-muted-foreground">This is a full console/PC game running in the browser. It runs best in its own tab, so it opens in a new tab through the Astra proxy.</p>
+              <a href={`/play?url=${encodeURIComponent(game.url)}&name=${encodeURIComponent(game.name)}`} target="_blank" rel="noopener" className="block rounded-md bg-primary px-4 py-2.5 text-center font-medium text-primary-foreground hover:opacity-90">Play in new tab</a>
               <button onClick={() => setInline(true)} className="w-full rounded-md border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Try inside Astra anyway (may not load)</button>
             </div>
           </div>
@@ -476,7 +476,7 @@ function Sites({ list, storeKey, note, initial }: { list: readonly { name: strin
           {list.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
         </select>
         <div className="ml-auto flex gap-2">
-          <a href={current.url} target="_blank" rel="noopener" className="rounded-md border p-1.5" aria-label="Open in new tab" title="Open in new tab"><ExternalLink className="size-4" /></a>
+          <a href={`/play?url=${encodeURIComponent(current.url)}&name=${encodeURIComponent(current.name)}`} target="_blank" rel="noopener" className="rounded-md border p-1.5" aria-label="Open in new tab" title="Open in new tab"><ExternalLink className="size-4" /></a>
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
           <button onClick={() => wrap.current?.requestFullscreen?.()} className="rounded-md border p-1.5" aria-label="Fullscreen"><Maximize className="size-4" /></button>
         </div>

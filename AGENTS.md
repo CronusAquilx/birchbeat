@@ -27,4 +27,4 @@
 - Game cheats (mod menu) are data in `src/lib/games/mods.ts`: each locks a compiled game variable name; the game shim installs Object.prototype getters for names passed via `?mods=` and toggles them by postMessage, so cheats switch live without reloading.
 - Game saves: the game shim seeds localStorage from the iframe `name` (`bbsave:` JSON) and posts changes back; the player stores them per account in `game_saves`. The AI mod maker (`/api/game-ai`) edits that save data with one hosted-model call, because compiled games expose no other stable hook.
 - Game auto mods (`src/components/games/AutoMods.tsx`) detect numbers in the per-account save and rewrite it, with no AI call; player-stat cheats for GameMaker games wrap the compiled ds_map reader named in `MAP_READER` (mods.ts).
-- AAA browser games (`AAA_GAMES`) open in their own tab by default, because they need cross-origin isolation and their real site origin, which the in-app proxy frame cannot provide.
+- AAA browser games (`AAA_GAMES`) open in a separate tab at `/play` (full-tab proxied frame), because they run better with the whole tab.
