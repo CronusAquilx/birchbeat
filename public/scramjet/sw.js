@@ -46,6 +46,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(Promise.resolve($scramjetController.route(event)).then(withIsolation));
     return;
   }
-  if (event.request.mode === "navigate") return;
+  const u = new URL(event.request.url);
+  if (event.request.mode === "navigate" || !event.clientId || u.origin !== self.location.origin || u.pathname.startsWith("/scramjet/") || u.pathname.startsWith("/api/")) return;
   event.respondWith(rescue(event).then((r) => r ?? fetch(event.request)).catch(() => fetch(event.request)));
 });
