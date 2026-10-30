@@ -34,6 +34,7 @@ const SERVERS = [
 
 /** Cloud gaming services: big games (GTA V, Call of Duty, Fortnite) stream from their servers. */
 const CLOUD = [
+  { name: "Wix3 Browser (AAA games)", url: "https://browser.wix3.com/" },
   { name: "Xbox Cloud (GTA V, COD)", url: "https://www.xbox.com/play" },
   { name: "GeForce NOW", url: "https://play.geforcenow.com/" },
   { name: "now.gg", url: "https://now.gg/" },
