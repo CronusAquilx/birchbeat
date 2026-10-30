@@ -32,7 +32,17 @@ const SERVERS = [
   { name: "UGS", url: "https://0288007.github.io/ugs/" },
 ] as const;
 
-type Mode = "games" | "sites";
+/** Cloud gaming services: big games (GTA V, Call of Duty, Fortnite) stream from their servers. */
+const CLOUD = [
+  { name: "Xbox Cloud (GTA V, COD)", url: "https://www.xbox.com/play" },
+  { name: "GeForce NOW", url: "https://play.geforcenow.com/" },
+  { name: "now.gg", url: "https://now.gg/" },
+  { name: "EasyFun", url: "https://www.easyfun.gg/" },
+  { name: "Boosteroid", url: "https://cloud.boosteroid.com/" },
+  { name: "Amazon Luna", url: "https://luna.amazon.com/" },
+] as const;
+
+type Mode = "games" | "sites" | "cloud";
 type Game = { id: number; name: string; author: string; file: string; cover: string };
 
 function Games() {
@@ -40,7 +50,7 @@ function Games() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     const m = localStorage.getItem("astra-games-mode");
-    if (m === "games" || m === "sites") setMode(m);
+    if (m === "games" || m === "sites" || m === "cloud") setMode(m);
     setReady(true);
   }, []);
   const choose = (m: Mode) => { localStorage.setItem("astra-games-mode", m); setMode(m); };
@@ -54,6 +64,7 @@ function Games() {
           <div className="ml-3 flex rounded-md border p-0.5 text-xs">
             <button onClick={() => choose("games")} className={`rounded px-2 py-1 ${mode === "games" ? "bg-accent" : ""}`}>Just games</button>
             <button onClick={() => choose("sites")} className={`rounded px-2 py-1 ${mode === "sites" ? "bg-accent" : ""}`}>Actual website</button>
+            <button onClick={() => choose("cloud")} className={`rounded px-2 py-1 ${mode === "cloud" ? "bg-accent" : ""}`}>Cloud</button>
           </div>
         )}
       </header>
@@ -71,7 +82,7 @@ function Games() {
             </button>
           </div>
         </div>
-      ) : mode === "games" ? <Library /> : <Sites />}
+      ) : mode === "games" ? <Library /> : mode === "cloud" ? <Sites key="cloud" list={CLOUD} storeKey="astra-cloud-server" note="Big games like GTA V and Call of Duty stream from these services. Xbox Cloud needs an Xbox Game Pass Ultimate account, GeForce NOW needs games you own on Steam/Epic. now.gg and EasyFun are free." /> : <Sites key="sites" list={SERVERS} storeKey="astra-game-server" />}
     </div>
   );
 }
@@ -322,22 +333,22 @@ function Player({ game, onBack }: { game: Game; onBack: () => void }) {
   );
 }
 
-function Sites() {
+function Sites({ list, storeKey, note }: { list: readonly { name: string; url: string }[]; storeKey: string; note?: string }) {
   const prefs = usePrefs();
   const ref = useRef<HTMLIFrameElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
-  const [server, setServer] = useState<string>("GN Math");
+  const [server, setServer] = useState<string>(list[0]!.name);
   const [nonce, setNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const current = SERVERS.find((s) => s.name === server) ?? SERVERS[0];
+  const current = list.find((s) => s.name === server) ?? list[0]!;
 
   useEffect(() => {
-    const s = localStorage.getItem("astra-game-server");
+    const s = localStorage.getItem(storeKey);
     if (s) setServer(s);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("astra-game-server", current.name);
+    localStorage.setItem(storeKey, current.name);
     setError(null);
     const iframe = ref.current;
     if (!iframe) return;
@@ -359,16 +370,17 @@ function Sites() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <select value={current.name} onChange={(e) => setServer(e.target.value)} className="rounded-md border bg-background px-2 py-1 text-sm" aria-label="Site">
-          {SERVERS.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+          {list.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
         </select>
         <div className="ml-auto flex gap-2">
           <button onClick={() => setNonce((n) => n + 1)} className="rounded-md border p-1.5" aria-label="Reload"><RotateCw className="size-4" /></button>
           <button onClick={() => wrap.current?.requestFullscreen?.()} className="rounded-md border p-1.5" aria-label="Fullscreen"><Maximize className="size-4" /></button>
         </div>
       </div>
+      {note && <p className="border-b px-3 py-1.5 text-xs text-muted-foreground">{note}</p>}
       {error && <p className="px-4 py-2 text-sm text-destructive">Couldn't load {current.name}: {error}. Try another site.</p>}
       <div ref={wrap} className="flex-1">
-        <iframe key={`${current.name}-${nonce}`} ref={ref} title={current.name} className="h-full w-full border-0 bg-background" allow="fullscreen; autoplay; gamepad" allowFullScreen />
+        <iframe key={`${current.name}-${nonce}`} ref={ref} title={current.name} className="h-full w-full border-0 bg-background" allow="fullscreen; autoplay; gamepad; microphone; clipboard-read; clipboard-write; keyboard-map; pointer-lock" allowFullScreen />
       </div>
     </div>
   );
