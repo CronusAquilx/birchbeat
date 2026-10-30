@@ -41,7 +41,28 @@ async function rescue(event) {
   return Response.redirect(`${PREFIX}${parts[0]}/${parts[1]}/${encodeURIComponent(target)}`, 307);
 }
 
+// Proxied URL that points back at Astra's own domain (the site learned the real
+// origin, e.g. inside a worker). Swap in the site's real origin and retry.
+function fixLeak(req) {
+  const u = new URL(req.url);
+  if (!u.pathname.startsWith(PREFIX)) return null;
+  const parts = u.pathname.slice(PREFIX.length).split("/");
+  if (parts.length < 3) return null;
+  let inner;
+  try { inner = new URL(decodeURIComponent(parts.slice(2).join("/"))); } catch { return null; }
+  if (inner.origin !== self.location.origin) return null;
+  const io = u.searchParams.get("$io");
+  if (!io) return null;
+  let real;
+  try { real = new URL(io); } catch { return null; }
+  if (!/^https?:$/.test(real.protocol) || real.origin === self.location.origin) return null;
+  const target = real.origin + inner.pathname + inner.search;
+  return `${PREFIX}${parts[0]}/${parts[1]}/${encodeURIComponent(target)}${u.search}`;
+}
+
 self.addEventListener("fetch", (event) => {
+  const fixed = fixLeak(event.request);
+  if (fixed) { event.respondWith(Response.redirect(fixed, 307)); return; }
   if ($scramjetController.shouldRoute(event)) {
     event.respondWith(Promise.resolve($scramjetController.route(event)).then(withIsolation));
     return;
